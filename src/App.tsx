@@ -82,6 +82,8 @@ const DomainThankYouPage = lazy(() => import("@/features/domain-marketplace/page
 const DomainOrderPage = lazy(() => import("@/features/domain-marketplace/pages/DomainOrderPage"));
 const AnalyticsPage = lazy(() => import("@/features/ecommerce/pages/AnalyticsPage"));
 const OrdersPage = lazy(() => import("@/features/ecommerce/pages/OrdersPage"));
+const StoreInboxPage = lazy(() => import("@/features/ecommerce/pages/store-inbox/StoreInboxPage"));
+const StoreBotSettingsPage = lazy(() => import("@/features/ecommerce/pages/store-settings/StoreBotSettingsPage"));
 const LeadsPage = lazy(() => import("@/features/ecommerce/pages/LeadsPage"));
 const FormsPage = lazy(() => import("@/features/ecommerce/pages/FormsPage"));
 const ProOrderDetailPage = lazy(() => import("@/features/ecommerce/pages/ProOrderDetailPage"));
@@ -372,8 +374,10 @@ function App() {
                       <Route path="job-orders" element={<DashboardOrders />} />
 
                       <Route path="orders" element={<OrdersPage />} />
+                      <Route path="store-inbox" element={<StoreInboxPage />} />
                       <Route path="orders/:id" element={<ProOrderDetailPage />} />
                       <Route path="leads" element={<LeadsPage />} />
+                      <Route path="store-bot" element={<StoreBotSettingsPage />} />
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="products" element={<ProductsPage />} />
                       <Route path="collections" element={<CollectionsPage />} />

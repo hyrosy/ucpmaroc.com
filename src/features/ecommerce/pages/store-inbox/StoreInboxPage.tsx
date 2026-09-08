@@ -1,0 +1,193 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/supabaseClient';
+import { MessageCircle, Search, Send, User, Bot } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { useOutletContext } from 'react-router-dom';
+
+export default function StoreInboxPage() {
+    const { actorData } = useOutletContext<any>();
+    const [conversations, setConversations] = useState<any[]>([]);
+    const [activeId, setActiveId] = useState<string | null>(null);
+    const [messages, setMessages] = useState<any[]>([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [loading, setLoading] = useState(true);
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    const fetchConversations = async () => {
+        setLoading(true);
+        if (!actorData?.id) return;
+
+        const { data: portfolios } = await supabase.from('portfolios').select('id').eq('actor_id', actorData.id);
+        const pIds = portfolios?.map(p => p.id) || [];
+        
+        if (pIds.length > 0) {
+            const { data } = await supabase
+                .from('store_conversations')
+                .select('*, store_messages(content, created_at, sender_type)')
+                .in('portfolio_id', pIds)
+                .order('updated_at', { ascending: false });
+            
+            const processed = data?.map(conv => {
+                const sortedMsgs = conv.store_messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                return { ...conv, last_message: sortedMsgs[0] || null };
+            }) || [];
+            setConversations(processed);
+        }
+        setLoading(false);
+    };
+
+    // Load conversations for the Creator's stores
+    useEffect(() => {
+        if (actorData?.id) fetchConversations();
+
+        // Global listener to update sidebar in real-time
+        const globalChannel = supabase.channel('global_inbox_updates')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'store_messages' }, payload => {
+                setConversations(prev => {
+                    const conv = prev.find(c => c.id === payload.new.conversation_id);
+                    if (conv) {
+                        const others = prev.filter(c => c.id !== payload.new.conversation_id);
+                        return [{ ...conv, updated_at: payload.new.created_at, last_message: payload.new }, ...others];
+                    } else {
+                        fetchConversations();
+                        return prev;
+                    }
+                });
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(globalChannel); };
+    }, [actorData?.id]);
+
+    // Load messages when a conversation is selected
+    useEffect(() => {
+        if (!activeId) return;
+        const fetchMessages = async () => {
+            const { data } = await supabase
+                .from('store_messages')
+                .select('*')
+                .eq('conversation_id', activeId)
+                .order('created_at', { ascending: true });
+            if (data) setMessages(data);
+        };
+        fetchMessages();
+
+        // Sub to real-time chat
+        const channel = supabase.channel(`inbox_${activeId}`)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'store_messages', filter: `conversation_id=eq.${activeId}` }, payload => {
+                setMessages(prev => {
+                    if (prev.find(m => m.id === payload.new.id || (m.content === payload.new.content && String(m.id).startsWith('temp-')))) {
+                        return prev.map(m => (m.content === payload.new.content && String(m.id).startsWith('temp-')) ? payload.new : m);
+                    }
+                    return [...prev, payload.new];
+                });
+                setConversations(prev => prev.map(c => c.id === activeId ? { ...c, updated_at: payload.new.created_at, last_message: payload.new } : c));
+            })
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [activeId]);
+
+    useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, activeId]);
+
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newMessage.trim() || !activeId) return;
+        const msg = newMessage;
+        setNewMessage('');
+        
+        // Optimistic UI update
+        const tempId = `temp-${Date.now()}`;
+        setMessages(prev => [...prev, { id: tempId, conversation_id: activeId, sender_type: 'owner', content: msg, created_at: new Date().toISOString() }]);
+
+        const { error } = await supabase.from('store_messages').insert({ conversation_id: activeId, sender_type: 'owner', content: msg });
+        if (error) setMessages(prev => prev.filter(m => m.id !== tempId));
+
+        // Automatically set status to agent_requested so AI stops replying
+        await supabase.from('store_conversations').update({ status: 'agent_requested', updated_at: new Date().toISOString() }).eq('id', activeId);
+    };
+
+    return (
+        <div className="flex h-[calc(100vh-100px)] overflow-hidden rounded-xl border bg-background shadow-sm">
+            {/* Left Sidebar */}
+            <div className="w-[300px] border-r bg-muted/10 flex flex-col shrink-0 lg:w-[350px]">
+                <div className="p-4 border-b bg-background">
+                    <h2 className="font-semibold text-lg flex items-center gap-2">
+                        <MessageCircle className="h-5 w-5 text-primary" /> Store Inbox
+                    </h2>
+                    <div className="relative mt-4">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search visitors..." className="pl-9 bg-muted/50 border-transparent" />
+                    </div>
+                </div>
+                <ScrollArea className="flex-1">
+                    {loading ? <p className="p-4 text-center text-sm text-muted-foreground">Loading...</p> 
+                    : conversations.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No active live chats.</p> 
+                    : <div className="flex flex-col">
+                        {conversations.map(conv => (
+                            <button key={conv.id} onClick={() => setActiveId(conv.id)} className={`flex items-start gap-3 border-b p-4 text-left transition-colors hover:bg-muted/50 ${activeId === conv.id ? 'bg-primary/5 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'}`}>
+                                <Avatar className="h-10 w-10 border bg-background"><AvatarFallback className="bg-muted text-muted-foreground"><User className="h-5 w-5" /></AvatarFallback></Avatar>
+                                <div className="flex-1 overflow-hidden">
+                                    <div className="flex justify-between items-center mb-1">
+                                    <span className="font-medium text-sm flex items-center gap-1">Visitor #{conv.visitor_session_id.substring(0, 4)} {conv.status === 'agent_requested' && <span className="h-2 w-2 rounded-full bg-orange-500" title="Agent Handling" />}</span>
+                                        <span className="text-[10px] text-muted-foreground">{new Date(conv.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground truncate">{conv.last_message?.sender_type === 'owner' ? 'You: ' : ''}{conv.last_message?.content || 'Started a chat'}</p>
+                                </div>
+                            </button>
+                        ))}
+                    </div>}
+                </ScrollArea>
+            </div>
+
+            {/* Right Chat Area */}
+            <div className="flex-1 flex flex-col bg-background min-w-0">
+                {activeId ? (
+                    <>
+                        <div className="border-b p-4 flex items-center justify-between bg-background shadow-sm z-10 shrink-0">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9"><AvatarFallback className="bg-primary/10 text-primary">V</AvatarFallback></Avatar>
+                                <div>
+                                    <h3 className="font-semibold text-sm">Live Visitor</h3>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500"></span> Online</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <ScrollArea className="flex-1 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-900/20">
+                            <div className="space-y-4">
+                                {messages.map((msg, i) => {
+                                    const isOwner = msg.sender_type === 'owner';
+                                    const isBot = msg.sender_type === 'ai_bot';
+                                    return (
+                                        <div key={i} className={`flex ${isOwner ? 'justify-end' : 'justify-start'}`}>
+                                            <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${isOwner ? 'bg-primary text-primary-foreground rounded-br-sm' : isBot ? 'bg-indigo-500 text-white rounded-bl-sm' : 'bg-background border rounded-bl-sm'}`}>
+                                                {isBot && <div className="flex items-center gap-1 mb-1 text-[10px] font-bold uppercase opacity-80"><Bot className="h-3 w-3" /> AI Assistant</div>}
+
+                                                {(msg.content || '').replace('[APPROVE_MARKETING]', '')}
+                                                <div className={`text-[10px] text-right mt-1 ${isOwner || isBot ? 'opacity-70' : 'text-muted-foreground'}`}>{new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                                <div ref={scrollRef} />
+                            </div>
+                        </ScrollArea>
+                        <div className="p-4 border-t bg-background shrink-0">
+                            <form onSubmit={handleSend} className="flex gap-2">
+                                <Input placeholder="Type your reply..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1" />
+                                <Button type="submit" disabled={!newMessage.trim()}><Send className="h-4 w-4 mr-2" /> Send</Button>
+                            </form>
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex h-full flex-col items-center justify-center text-muted-foreground space-y-4">
+                        <MessageCircle className="h-12 w-12 opacity-20" /><p>Select a conversation to start chatting</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
