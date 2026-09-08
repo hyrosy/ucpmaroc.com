@@ -13,17 +13,47 @@ interface StorefrontChatWidgetProps {
   iconType?: string;
   customIconUrl?: string;
   welcomeMessage?: string;
-  suggestedQuestions?: any[];
+  suggestedQuestions?: Array<string | { question: string; answer?: string }>;
   isInline?: boolean;
+}
+
+interface StoreMessage {
+  id: string;
+  conversation_id: string | null;
+  sender_type: 'visitor' | 'owner' | 'ai_bot';
+  content: string;
+  created_at: string;
 }
 
 const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId, storeName = 'Store Support', aiEnabled = false, iconType = 'message', customIconUrl = '', welcomeMessage, suggestedQuestions = [], isInline = false }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<StoreMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [visitorId, setVisitorId] = useState<string>('');
   const scrollRef = useRef<HTMLDivElement>(null);
+  const conversationPromiseRef = useRef<Promise<string> | null>(null);
+
+  const getOrCreateConversation = () => {
+    if (conversationId) return Promise.resolve(conversationId);
+    if (conversationPromiseRef.current) return conversationPromiseRef.current;
+
+    conversationPromiseRef.current = supabase
+      .from('store_conversations')
+      .insert({ portfolio_id: portfolioId, visitor_session_id: visitorId, status: 'open' })
+      .select('id')
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) throw error || new Error('Unable to create conversation');
+        setConversationId(data.id);
+        return data.id;
+      })
+      .finally(() => {
+        conversationPromiseRef.current = null;
+      });
+
+    return conversationPromiseRef.current;
+  };
 
   // 1. Setup Visitor Session
   useEffect(() => {
@@ -97,19 +127,12 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
     const tempId = `temp-${Date.now()}`;
     setMessages(prev => [...prev, { id: tempId, conversation_id: conversationId, sender_type: 'visitor', content: msgContent, created_at: new Date().toISOString() }]);
 
-    let activeConvId = conversationId;
-
-    // Create conversation on the fly if it doesn't exist
-    if (!activeConvId) {
-      const { data, error } = await supabase
-        .from('store_conversations')
-        .insert({ portfolio_id: portfolioId, visitor_session_id: visitorId, status: 'open' })
-        .select()
-        .single();
-        
-      if (error) { setMessages(prev => prev.filter(m => m.id !== tempId)); return; }
-      activeConvId = data.id;
-      setConversationId(activeConvId);
+    let activeConvId: string;
+    try {
+      activeConvId = await getOrCreateConversation();
+    } catch {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      return;
     }
 
     const { error: msgError } = await supabase.from('store_messages').insert({
@@ -122,16 +145,12 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
 
   // Fast-track function for the AI action buttons
   const handleSendDirect = async (text: string) => {
-    let activeConvId = conversationId;
-    if (!activeConvId) {
-      const { data, error } = await supabase
-        .from('store_conversations')
-        .insert({ portfolio_id: portfolioId, visitor_session_id: visitorId, status: 'open' })
-        .select()
-        .single();
-      if (error) return console.error('Error creating conversation:', error);
-      activeConvId = data.id;
-      setConversationId(activeConvId);
+    let activeConvId: string;
+    try {
+      activeConvId = await getOrCreateConversation();
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      return;
     }
     
     const tempId = `temp-${Date.now()}`;
@@ -149,6 +168,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
       localStorage.setItem('ucp_visitor_id', newVid);
       setVisitorId(newVid);
       setConversationId(null);
+      conversationPromiseRef.current = null;
       setMessages([]);
     }
   };

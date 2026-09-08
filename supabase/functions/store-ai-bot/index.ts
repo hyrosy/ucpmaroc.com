@@ -3,12 +3,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   try {
-    // 1. Parse the Webhook Payload
-    const payload = await req.json();
+    const webhookSecret = Deno.env.get('STORE_AI_BOT_WEBHOOK_SECRET');
+    const signature = req.headers.get('x-store-webhook-signature');
+    const rawBody = await req.text();
+    if (!webhookSecret || !signature || !(await isValidSignature(rawBody, signature, webhookSecret))) {
+      return new Response('Invalid webhook signature', { status: 401 });
+    }
+
+    const payload = JSON.parse(rawBody) as { record?: StoreMessageRecord };
     const visitorMessage = payload.record;
 
     // Only react to messages sent by visitors
-    if (visitorMessage.sender_type !== 'visitor') {
+    if (!visitorMessage || visitorMessage.sender_type !== 'visitor' || !visitorMessage.conversation_id || !visitorMessage.content) {
       return new Response("Ignored: Not a visitor message", { status: 200 });
     }
 
@@ -40,8 +46,8 @@ serve(async (req) => {
     const config = portfolio?.theme_config || {};
     
     // 4. Intercept Pre-defined FAQs (Answers instantly without hitting OpenAI)
-    const faqs = config.store_chat_suggested_questions || [];
-    const matchedFaq = faqs.find((f: any) => typeof f === 'object' && f.question && f.question.trim() === visitorMessage.content.trim() && f.answer && f.answer.trim());
+    const faqs = Array.isArray(config.store_chat_suggested_questions) ? config.store_chat_suggested_questions : [];
+    const matchedFaq = faqs.find((f): f is { question: string; answer: string } => typeof f === 'object' && f !== null && typeof f.question === 'string' && f.question.trim() === visitorMessage.content.trim() && typeof f.answer === 'string' && Boolean(f.answer.trim()));
     
     if (matchedFaq) {
       await supabase.from('store_messages').insert({
@@ -82,7 +88,7 @@ serve(async (req) => {
     }).join('\n') || 'No products available currently.';
 
     // Parse Portfolio Sections for General Context
-    const sectionsText = portfolio?.sections?.map((s: any) => {
+    const sectionsText = portfolio?.sections?.map((s: Record<string, unknown>) => {
       let text = `- [${s.type.toUpperCase()}] `;
       if (s.data?.title) text += `${s.data.title}: `;
       const desc = s.data?.description || s.data?.content || s.data?.text || s.data?.about_text;
@@ -352,3 +358,23 @@ If the user asks about a discount or promo code, offer them a discount in exchan
     return new Response("AI Reply completed successfully", { status: 200 });
   } catch (err) { return new Response(String(err), { status: 500 }); }
 });
+
+interface StoreMessageRecord {
+  conversation_id: string;
+  sender_type: string;
+  content: string;
+}
+
+async function isValidSignature(body: string, signature: string, secret: string): Promise<boolean> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+  const expected = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  const provided = signature.startsWith('sha256=') ? signature.slice(7) : signature;
+  return provided.length === expected.length && [...provided].every((character, index) => character === expected[index]);
+}

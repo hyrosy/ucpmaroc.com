@@ -6,12 +6,30 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useOutletContext } from 'react-router-dom';
+import { ActorDashboardContextType } from '@/layouts/ActorDashboardLayout';
+
+interface StoreMessage {
+    id: string;
+    conversation_id: string;
+    sender_type: 'visitor' | 'owner' | 'ai_bot';
+    content: string;
+    created_at: string;
+}
+
+interface StoreConversation {
+    id: string;
+    visitor_session_id: string;
+    status: string;
+    updated_at: string;
+    store_messages: StoreMessage[];
+    last_message?: StoreMessage | null;
+}
 
 export default function StoreInboxPage() {
-    const { actorData } = useOutletContext<any>();
-    const [conversations, setConversations] = useState<any[]>([]);
+    const { actorData } = useOutletContext<ActorDashboardContextType>();
+    const [conversations, setConversations] = useState<StoreConversation[]>([]);
     const [activeId, setActiveId] = useState<string | null>(null);
-    const [messages, setMessages] = useState<any[]>([]);
+    const [messages, setMessages] = useState<StoreMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -31,7 +49,7 @@ export default function StoreInboxPage() {
                 .order('updated_at', { ascending: false });
             
             const processed = data?.map(conv => {
-                const sortedMsgs = conv.store_messages.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                const sortedMsgs = conv.store_messages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                 return { ...conv, last_message: sortedMsgs[0] || null };
             }) || [];
             setConversations(processed);

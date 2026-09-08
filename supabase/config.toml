@@ -45,6 +45,11 @@ entrypoint = "./functions/crypto-webhook/index.ts"
 [functions.compile-theme]
 verify_jwt = false
 
+[functions.store-ai-bot]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/store-ai-bot/index.ts"
+
 [functions.admin-delete-account]
 verify_jwt = true
 import_map = "./functions/admin-delete-account/deno.json"

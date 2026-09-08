@@ -8,12 +8,20 @@ import { Card, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { useSearchParams, useOutletContext } from 'react-router-dom';
 import StorefrontChatWidget from '@/features/ecommerce/components/store-chat/StorefrontChatWidget';
+import { ActorDashboardContextType } from '@/layouts/ActorDashboardLayout';
+
+interface SuggestedQuestion {
+    question: string;
+    answer: string;
+}
+
+type ThemeConfig = Record<string, unknown>;
 
 export default function StoreBotSettingsPage() {
     const [searchParams] = useSearchParams();
     const queryPortfolioId = searchParams.get('portfolioId');
-    const { actorData } = useOutletContext<any>();
-    const [portfolios, setPortfolios] = useState<any[]>([]);
+    const { actorData } = useOutletContext<ActorDashboardContextType>();
+    const [portfolios, setPortfolios] = useState<Array<{ id: string; site_name: string | null; theme_config: ThemeConfig | null }>>([]);
     const [activePortfolioId, setActivePortfolioId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -62,19 +70,22 @@ export default function StoreBotSettingsPage() {
         if (actorData?.id) fetchPortfolios();
     }, [queryPortfolioId, actorData?.id]);
 
-    const loadConfig = (themeConfig: any) => {
+    const loadConfig = (themeConfig: ThemeConfig | null) => {
+        const getString = (key: string, fallback: string) => typeof themeConfig?.[key] === 'string' ? themeConfig[key] as string : fallback;
+        const getBoolean = (key: string, fallback: boolean) => typeof themeConfig?.[key] === 'boolean' ? themeConfig[key] as boolean : fallback;
+        const suggestedQuestions = Array.isArray(themeConfig?.store_chat_suggested_questions) ? themeConfig.store_chat_suggested_questions : [];
         setConfig({
-            store_chat_enabled: themeConfig?.store_chat_enabled ?? false,
-            store_chat_mode: themeConfig?.store_chat_mode ?? 'internal',
-            store_chat_whatsapp_number: themeConfig?.store_chat_whatsapp_number ?? '',
-            store_chat_welcome_message: themeConfig?.store_chat_welcome_message ?? 'Hi! 👋 How can we help you today?',
-            store_chat_ai_assistant: themeConfig?.store_chat_ai_assistant ?? false,
-            store_chat_ai_prompt: themeConfig?.store_chat_ai_prompt ?? '',
-            store_chat_marketing_optin: themeConfig?.store_chat_marketing_optin ?? false,
-            store_chat_marketing_coupon: themeConfig?.store_chat_marketing_coupon ?? '',
-            store_chat_icon_type: themeConfig?.store_chat_icon_type ?? 'message',
-            store_chat_custom_icon_url: themeConfig?.store_chat_custom_icon_url ?? '',
-            store_chat_suggested_questions: (themeConfig?.store_chat_suggested_questions || []).map((q: any) => typeof q === 'string' ? { question: q, answer: '' } : q)
+            store_chat_enabled: getBoolean('store_chat_enabled', false),
+            store_chat_mode: getString('store_chat_mode', 'internal'),
+            store_chat_whatsapp_number: getString('store_chat_whatsapp_number', ''),
+            store_chat_welcome_message: getString('store_chat_welcome_message', 'Hi! 👋 How can we help you today?'),
+            store_chat_ai_assistant: getBoolean('store_chat_ai_assistant', false),
+            store_chat_ai_prompt: getString('store_chat_ai_prompt', ''),
+            store_chat_marketing_optin: getBoolean('store_chat_marketing_optin', false),
+            store_chat_marketing_coupon: getString('store_chat_marketing_coupon', ''),
+            store_chat_icon_type: getString('store_chat_icon_type', 'message'),
+            store_chat_custom_icon_url: getString('store_chat_custom_icon_url', ''),
+            store_chat_suggested_questions: suggestedQuestions.map((q): SuggestedQuestion => typeof q === 'string' ? { question: q, answer: '' } : q as SuggestedQuestion)
         });
     };
 
