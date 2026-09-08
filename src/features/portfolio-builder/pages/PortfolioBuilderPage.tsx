@@ -73,6 +73,7 @@ import {
   Gift,
   ChevronRight,
   Package,
+  Bot,
 } from "lucide-react";
 import {
   type PortfolioSection,
@@ -2266,6 +2267,23 @@ const PortfolioBuilderPage = () => {
                          </CardContent>
                        </Card>
                     ))}
+
+                  <div className="mt-6 pt-4 border-t border-border/50">
+                    <h3 className="font-bold text-lg mb-2">Live Chat & Bots</h3>
+                    <p className="text-xs text-muted-foreground mb-3">Configure your storefront live chat widget.</p>
+                    <Button variant="outline" className="w-full justify-between h-auto py-3 px-4 rounded-xl border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors" onClick={() => window.open(`/dashboard/store-bot?portfolioId=${activePortfolioId}`, '_blank')}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                          <Bot size={16} />
+                        </div>
+                        <div className="text-left">
+                          <div className="font-bold text-sm">Bot Settings</div>
+                          <div className="text-[10px] text-muted-foreground">Manage WhatsApp & Platform Inbox</div>
+                        </div>
+                      </div>
+                      <ExternalLink size={16} className="text-muted-foreground" />
+                    </Button>
+                  </div>
                   </div>
                 </div>
               )}

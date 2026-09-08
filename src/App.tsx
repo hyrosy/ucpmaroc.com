@@ -75,13 +75,15 @@ const ActorSignUpPage = lazy(() => import("@/features/auth/pages/ActorSignUpPage
 const ClientAuthPage = lazy(() => import("@/features/auth/pages/ClientAuthPage"));
 const CreateProfilePromptPage = lazy(() => import("@/features/auth/pages/CreateProfilePromptPage"));
 const MessagesPage = lazy(() => import("@/features/messaging/pages/MessagesPage"));
-const AdminChatSheet = lazy(() => import("@/features/messaging/components/AdminChatSheet").then((module) => ({ default: module.AdminChatSheet })));
+const AdminChatSheet = lazy(() => import("@/features/messaging/components/AdminChatSheet").then((module) => ({ default: module.AdminChatSheet || module.default })));
 const DomainMarketplace = lazy(() => import("@/features/domain-marketplace/pages/DomainMarketplace"));
 const DomainCheckout = lazy(() => import("@/features/domain-marketplace/pages/DomainCheckout"));
 const DomainThankYouPage = lazy(() => import("@/features/domain-marketplace/pages/DomainThankYouPage"));
 const DomainOrderPage = lazy(() => import("@/features/domain-marketplace/pages/DomainOrderPage"));
 const AnalyticsPage = lazy(() => import("@/features/ecommerce/pages/AnalyticsPage"));
 const OrdersPage = lazy(() => import("@/features/ecommerce/pages/OrdersPage"));
+const StoreInboxPage = lazy(() => import("@/features/ecommerce/pages/store-inbox/StoreInboxPage"));
+const StoreBotSettingsPage = lazy(() => import("@/features/ecommerce/pages/store-settings/StoreBotSettingsPage"));
 const LeadsPage = lazy(() => import("@/features/ecommerce/pages/LeadsPage"));
 const FormsPage = lazy(() => import("@/features/ecommerce/pages/FormsPage"));
 const ProOrderDetailPage = lazy(() => import("@/features/ecommerce/pages/ProOrderDetailPage"));
@@ -203,9 +205,10 @@ function App() {
   }, []);
 
   const currentHostname = window.location.hostname;
+  const isLocalIp = /^[0-9\.]+$/.test(currentHostname); // Prevents mobile test IPs (192.168.x.x) from being treated as custom domains
   const isCustomDomain = !MAIN_DOMAINS.some((domain) =>
     currentHostname.includes(domain)
-  );
+  ) && !isLocalIp;
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -371,8 +374,10 @@ function App() {
                       <Route path="job-orders" element={<DashboardOrders />} />
 
                       <Route path="orders" element={<OrdersPage />} />
+                      <Route path="store-inbox" element={<StoreInboxPage />} />
                       <Route path="orders/:id" element={<ProOrderDetailPage />} />
                       <Route path="leads" element={<LeadsPage />} />
+                      <Route path="store-bot" element={<StoreBotSettingsPage />} />
                       <Route path="settings" element={<SettingsPage />} />
                       <Route path="products" element={<ProductsPage />} />
                       <Route path="collections" element={<CollectionsPage />} />

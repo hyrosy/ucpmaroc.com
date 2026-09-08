@@ -47,6 +47,8 @@ import {
   PencilLine,
   Video,
   PackageCheck,
+  Bot,
+  MessageCircle,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -134,6 +136,12 @@ const NAV_GROUPS = [
         icon: Mail,
         description: "Contact submissions",
       },
+      {
+        to: "/dashboard/store-inbox",
+        name: "Store Inbox",
+        icon: MessageCircle,
+        description: "Visitor live chats",
+      },
     ],
   },
   {
@@ -187,6 +195,12 @@ const NAV_GROUPS = [
         name: "Shipping Rates",
         icon: Truck,
         description: "Manage shipping rules",
+      },
+      {
+        to: "/dashboard/store-bot",
+        name: "Chat Widget",
+        icon: Bot,
+        description: "Storefront chat settings",
       },
     ],
   },

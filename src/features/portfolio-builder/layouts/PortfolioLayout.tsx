@@ -14,6 +14,8 @@ import {
 import CartDrawerContainer from "@/features/ecommerce/components/CartDrawerContainer";
 import { useBuilderStore } from "@/store/useBuilderStore";
 import { cn } from "@/lib/utils";
+import StorefrontChatWidget from "@/features/ecommerce/components/store-chat/StorefrontChatWidget";
+import { MessageCircle } from "lucide-react";
 
 // --- Helper to convert HEX to HSL for Tailwind ---
 function hexToHSLString(hex: string): string {
@@ -335,6 +337,31 @@ export default function PortfolioLayout({
             username={slug}
             isPreview={false}
           />
+        )}
+
+        {/* 🚀 Global Store Chat Widget */}
+        {!isBuilderPreview && themeConfig?.store_chat_enabled && themeConfig?.store_chat_mode === 'internal' && (
+          <StorefrontChatWidget 
+            portfolioId={portfolio?.id} 
+            storeName={portfolio?.site_name} 
+            aiEnabled={themeConfig?.store_chat_ai_assistant} 
+            iconType={themeConfig?.store_chat_icon_type}
+            customIconUrl={themeConfig?.store_chat_custom_icon_url}
+            welcomeMessage={themeConfig?.store_chat_welcome_message}
+            suggestedQuestions={themeConfig?.store_chat_suggested_questions}
+          />
+        )}
+
+        {/* 🚀 WhatsApp Mode Widget */}
+        {!isBuilderPreview && themeConfig?.store_chat_enabled && themeConfig?.store_chat_mode === 'whatsapp' && themeConfig?.store_chat_whatsapp_number && (
+          <a
+            href={`https://wa.me/${themeConfig.store_chat_whatsapp_number.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(themeConfig.store_chat_welcome_message || 'Hello!')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center bg-transparent text-[#25D366] drop-shadow-2xl hover:scale-110 transition-transform"
+          >
+            <MessageCircle size={56} className="fill-current" strokeWidth={1} />
+          </a>
         )}
         </div>
       </Suspense>
