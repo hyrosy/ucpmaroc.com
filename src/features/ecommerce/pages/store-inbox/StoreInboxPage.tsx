@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useOutletContext } from 'react-router-dom';
 import { ActorDashboardContextType } from '@/layouts/ActorDashboardLayout';
+import { toast } from 'sonner';
 
 interface StoreMessage {
     id: string;
@@ -32,22 +33,34 @@ export default function StoreInboxPage() {
     const [messages, setMessages] = useState<StoreMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const fetchConversations = async () => {
         setLoading(true);
+        setLoadError(null);
         if (!actorData?.id) return;
 
-        const { data: portfolios } = await supabase.from('portfolios').select('id').eq('actor_id', actorData.id);
+        const { data: portfolios, error: portfoliosError } = await supabase.from('portfolios').select('id').eq('actor_id', actorData.id);
+        if (portfoliosError) {
+            setLoadError('Unable to load your stores.');
+            setLoading(false);
+            return;
+        }
         const pIds = portfolios?.map(p => p.id) || [];
         
         if (pIds.length > 0) {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('store_conversations')
                 .select('*, store_messages(content, created_at, sender_type)')
                 .in('portfolio_id', pIds)
                 .order('updated_at', { ascending: false });
             
+            if (error) {
+                setLoadError('Unable to load conversations.');
+                setLoading(false);
+                return;
+            }
             const processed = data?.map(conv => {
                 const sortedMsgs = conv.store_messages.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                 return { ...conv, last_message: sortedMsgs[0] || null };
@@ -84,12 +97,13 @@ export default function StoreInboxPage() {
     useEffect(() => {
         if (!activeId) return;
         const fetchMessages = async () => {
-            const { data } = await supabase
+            const { data, error } = await supabase
                 .from('store_messages')
                 .select('*')
                 .eq('conversation_id', activeId)
                 .order('created_at', { ascending: true });
-            if (data) setMessages(data);
+            if (error) toast.error('Unable to load messages.');
+            else if (data) setMessages(data);
         };
         fetchMessages();
 
@@ -122,10 +136,15 @@ export default function StoreInboxPage() {
         setMessages(prev => [...prev, { id: tempId, conversation_id: activeId, sender_type: 'owner', content: msg, created_at: new Date().toISOString() }]);
 
         const { error } = await supabase.from('store_messages').insert({ conversation_id: activeId, sender_type: 'owner', content: msg });
-        if (error) setMessages(prev => prev.filter(m => m.id !== tempId));
+        if (error) {
+            setMessages(prev => prev.filter(m => m.id !== tempId));
+            toast.error('Unable to send your reply.');
+            return;
+        }
 
         // Automatically set status to agent_requested so AI stops replying
-        await supabase.from('store_conversations').update({ status: 'agent_requested', updated_at: new Date().toISOString() }).eq('id', activeId);
+        const { error: statusError } = await supabase.from('store_conversations').update({ status: 'agent_requested', updated_at: new Date().toISOString() }).eq('id', activeId);
+        if (statusError) toast.error('Reply sent, but human takeover could not be activated.');
     };
 
     return (
@@ -143,6 +162,7 @@ export default function StoreInboxPage() {
                 </div>
                 <ScrollArea className="flex-1">
                     {loading ? <p className="p-4 text-center text-sm text-muted-foreground">Loading...</p> 
+                    : loadError ? <p className="p-8 text-center text-sm text-destructive">{loadError}</p>
                     : conversations.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No active live chats.</p> 
                     : <div className="flex flex-col">
                         {conversations.map(conv => (

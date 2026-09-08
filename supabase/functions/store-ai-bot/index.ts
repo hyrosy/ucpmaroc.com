@@ -23,6 +23,25 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    if (visitorMessage.id) {
+      const { data: event, error: eventError } = await supabase
+        .from('store_ai_bot_events')
+        .select('status, updated_at')
+        .eq('message_id', visitorMessage.id)
+        .maybeSingle();
+      if (eventError) return new Response('Event state unavailable', { status: 503 });
+      if (event?.status === 'completed') return new Response('Already processed', { status: 200 });
+      const staleBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: claimed } = await supabase
+        .from('store_ai_bot_events')
+        .update({ status: 'processing', updated_at: new Date().toISOString() })
+        .eq('message_id', visitorMessage.id)
+        .or(`status.eq.pending,and(status.eq.processing,updated_at.lt.${staleBefore})`)
+        .select('message_id')
+        .maybeSingle();
+      if (!claimed) return new Response('Already processing', { status: 200 });
+    }
+
     // 3. Get Conversation & Store Settings
     const { data: conv } = await supabase
       .from('store_conversations')
@@ -44,18 +63,24 @@ serve(async (req) => {
       .single();
 
     const config = portfolio?.theme_config || {};
+
+    if (!config.store_chat_enabled || config.store_chat_mode !== 'internal') {
+      return new Response('Chat bot is not enabled for this storefront', { status: 200 });
+    }
     
     // 4. Intercept Pre-defined FAQs (Answers instantly without hitting OpenAI)
     const faqs = Array.isArray(config.store_chat_suggested_questions) ? config.store_chat_suggested_questions : [];
     const matchedFaq = faqs.find((f): f is { question: string; answer: string } => typeof f === 'object' && f !== null && typeof f.question === 'string' && f.question.trim() === visitorMessage.content.trim() && typeof f.answer === 'string' && Boolean(f.answer.trim()));
     
     if (matchedFaq) {
-      await supabase.from('store_messages').insert({
+      const { error: faqError } = await supabase.from('store_messages').insert({
         conversation_id: visitorMessage.conversation_id,
         sender_type: 'ai_bot',
         content: matchedFaq.answer.trim()
       });
+      if (faqError) return new Response('Failed to save FAQ reply', { status: 503 });
       await supabase.from('store_conversations').update({ updated_at: new Date().toISOString() }).eq('id', visitorMessage.conversation_id);
+      await markEventCompleted(supabase, visitorMessage.id);
       return new Response("Replied with predefined FAQ answer", { status: 200 });
     }
 
@@ -64,13 +89,15 @@ serve(async (req) => {
       // If AI is disabled, send an automated away message ONLY on the very first message
       const { count } = await supabase.from('store_messages').select('*', { count: 'exact', head: true }).eq('conversation_id', visitorMessage.conversation_id);
       if (count === 1) {
-        await supabase.from('store_messages').insert({
+        const { error: awayError } = await supabase.from('store_messages').insert({
           conversation_id: visitorMessage.conversation_id,
           sender_type: 'ai_bot',
           content: "Hi there! 👋 Our live agents are currently away. Please leave your name and email address, along with your question, and we'll get back to you as soon as possible!"
         });
+        if (awayError) return new Response('Failed to save away reply', { status: 503 });
         await supabase.from('store_conversations').update({ updated_at: new Date().toISOString() }).eq('id', visitorMessage.conversation_id);
       }
+      await markEventCompleted(supabase, visitorMessage.id);
       return new Response("AI is disabled for this store", { status: 200 });
     }
 
@@ -238,17 +265,33 @@ If the user asks about a discount or promo code, offer them a discount in exchan
         if (toolCall.function.name === 'check_order_status') {
           
           // Query Supabase for the exact order
-          const { data: order } = await supabase
+          const email = String(args.email || '').trim().toLowerCase();
+          const orderId = String(args.order_id || '').trim();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^[A-Za-z0-9_-]{1,64}$/.test(orderId)) {
+            openAiMessages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: 'Please provide a valid email address and order number.' });
+            continue;
+          }
+
+          let { data: order } = await supabase
             .from('pro_orders')
             .select('status, total_price, created_at, order_id_string')
             .eq('portfolio_id', conv.portfolio_id)
-            .ilike('client_email', args.email)
-            .or(`order_id_string.eq.${args.order_id},display_id.ilike.%${args.order_id}%`)
+            .eq('client_email', email)
+            .eq('order_id_string', orderId)
             .maybeSingle();
+          if (!order) {
+            ({ data: order } = await supabase
+              .from('pro_orders')
+              .select('status, total_price, created_at, order_id_string')
+              .eq('portfolio_id', conv.portfolio_id)
+              .eq('client_email', email)
+              .eq('display_id', orderId)
+              .maybeSingle());
+          }
 
           const toolResult = order 
             ? `Order found! Status is "${order.status}". Total: $${order.total_price}. Ordered on: ${new Date(order.created_at).toLocaleDateString()}` 
-            : `No order found for email "${args.email}" and ID "${args.order_id}".`;
+            : `No order found for email "${email}" and ID "${orderId}".`;
 
           openAiMessages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: toolResult });
         } 
@@ -352,14 +395,29 @@ If the user asks about a discount or promo code, offer them a discount in exchan
     }
 
     // 11. Save the final AI response to the database
-    await supabase.from('store_messages').insert({ conversation_id: visitorMessage.conversation_id, sender_type: 'ai_bot', content: message.content });
+    const { data: latestConversation, error: latestConversationError } = await supabase
+      .from('store_conversations')
+      .select('status')
+      .eq('id', visitorMessage.conversation_id)
+      .single();
+    if (latestConversationError) return new Response('Conversation state unavailable', { status: 503 });
+    if (latestConversation.status === 'agent_requested') {
+      return new Response('Conversation was assigned to a human agent', { status: 200 });
+    }
+
+    const { error: replyError } = await supabase.from('store_messages').insert({ conversation_id: visitorMessage.conversation_id, sender_type: 'ai_bot', content: message.content });
+    if (replyError) return new Response('Failed to save AI reply', { status: 503 });
     await supabase.from('store_conversations').update({ updated_at: new Date().toISOString() }).eq('id', visitorMessage.conversation_id);
+    if (visitorMessage.id) {
+      await markEventCompleted(supabase, visitorMessage.id);
+    }
 
     return new Response("AI Reply completed successfully", { status: 200 });
   } catch (err) { return new Response(String(err), { status: 500 }); }
 });
 
 interface StoreMessageRecord {
+  id?: string;
   conversation_id: string;
   sender_type: string;
   content: string;
@@ -377,4 +435,9 @@ async function isValidSignature(body: string, signature: string, secret: string)
   const expected = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
   const provided = signature.startsWith('sha256=') ? signature.slice(7) : signature;
   return provided.length === expected.length && [...provided].every((character, index) => character === expected[index]);
+}
+
+async function markEventCompleted(supabase: ReturnType<typeof createClient>, messageId?: string): Promise<void> {
+  if (!messageId) return;
+  await supabase.from('store_ai_bot_events').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('message_id', messageId);
 }

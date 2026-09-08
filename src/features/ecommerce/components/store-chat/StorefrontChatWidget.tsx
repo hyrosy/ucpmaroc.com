@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageCircle, X, Send, Bot, Sparkles, RefreshCw } from 'lucide-react';
-import { supabase } from '@/supabaseClient';
+import { createVisitorSupabase, supabase } from '@/supabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -31,14 +31,22 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
   const [newMessage, setNewMessage] = useState('');
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [visitorId, setVisitorId] = useState<string>('');
+  const [visitorReady, setVisitorReady] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const conversationPromiseRef = useRef<Promise<string> | null>(null);
+  const conversationLookupRef = useRef<Promise<string | null> | null>(null);
+  const visitorSupabaseRef = useRef(supabase);
 
-  const getOrCreateConversation = () => {
-    if (conversationId) return Promise.resolve(conversationId);
+  const getOrCreateConversation = async () => {
+    const existingConversationId = conversationId || await conversationLookupRef.current;
+    if (existingConversationId) {
+      setConversationId(existingConversationId);
+      return existingConversationId;
+    }
+    if (!visitorId) throw new Error('Visitor session is not ready');
     if (conversationPromiseRef.current) return conversationPromiseRef.current;
 
-    conversationPromiseRef.current = supabase
+    conversationPromiseRef.current = visitorSupabaseRef.current
       .from('store_conversations')
       .insert({ portfolio_id: portfolioId, visitor_session_id: visitorId, status: 'open' })
       .select('id')
@@ -63,19 +71,20 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
       localStorage.setItem('ucp_visitor_id', vid);
     }
     setVisitorId(vid);
+    setVisitorReady(true);
+    visitorSupabaseRef.current = createVisitorSupabase(vid);
 
     // Check for existing conversation
-    const checkExisting = async () => {
-      const { data } = await supabase
+    conversationLookupRef.current = visitorSupabaseRef.current
         .from('store_conversations')
         .select('id')
         .eq('portfolio_id', portfolioId)
         .eq('visitor_session_id', vid)
-        .maybeSingle();
-      
-      if (data) setConversationId(data.id);
-    };
-    checkExisting();
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) setConversationId(data.id);
+          return data?.id ?? null;
+        });
   }, [portfolioId]);
 
   // 2. Fetch Messages and Subscribe to Realtime
@@ -83,7 +92,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
     if (!conversationId) return;
 
     const fetchMessages = async () => {
-      const { data } = await supabase
+      const { data } = await visitorSupabaseRef.current
         .from('store_messages')
         .select('*')
         .eq('conversation_id', conversationId)
@@ -97,7 +106,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
     };
     fetchMessages();
 
-    const channel = supabase.channel(`store_chat_${conversationId}`)
+    const channel = visitorSupabaseRef.current.channel(`store_chat_${conversationId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'store_messages', filter: `conversation_id=eq.${conversationId}` }, (payload) => {
         setMessages(prev => {
            if (prev.find(m => m.id === payload.new.id || (m.content === payload.new.content && m.id.toString().startsWith('temp-')))) {
@@ -108,7 +117,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => { visitorSupabaseRef.current.removeChannel(channel); };
   }, [conversationId]);
 
   // 3. Scroll to bottom safely
@@ -135,7 +144,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
       return;
     }
 
-    const { error: msgError } = await supabase.from('store_messages').insert({
+    const { error: msgError } = await visitorSupabaseRef.current.from('store_messages').insert({
       conversation_id: activeConvId,
       sender_type: 'visitor',
       content: msgContent
@@ -145,6 +154,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
 
   // Fast-track function for the AI action buttons
   const handleSendDirect = async (text: string) => {
+    if (!visitorReady) return;
     let activeConvId: string;
     try {
       activeConvId = await getOrCreateConversation();
@@ -156,7 +166,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
     const tempId = `temp-${Date.now()}`;
     setMessages(prev => [...prev, { id: tempId, conversation_id: activeConvId, sender_type: 'visitor', content: text, created_at: new Date().toISOString() }]);
 
-    const { error: msgError } = await supabase.from('store_messages').insert({
+    const { error: msgError } = await visitorSupabaseRef.current.from('store_messages').insert({
       conversation_id: activeConvId, sender_type: 'visitor', content: text
     });
     if (msgError) setMessages(prev => prev.filter(m => m.id !== tempId));
@@ -167,8 +177,11 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
       const newVid = 'v-' + Math.random().toString(36).substring(2, 11);
       localStorage.setItem('ucp_visitor_id', newVid);
       setVisitorId(newVid);
+      visitorSupabaseRef.current = createVisitorSupabase(newVid);
       setConversationId(null);
       conversationPromiseRef.current = null;
+      conversationLookupRef.current = Promise.resolve(null);
+      setVisitorReady(true);
       setMessages([]);
     }
   };
@@ -251,7 +264,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
           </ScrollArea>
           <form onSubmit={handleSend} className="flex items-center gap-2 border-t bg-background p-3">
             <Input placeholder="Type a message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1 rounded-full bg-muted/30 focus-visible:ring-primary" />
-            <Button type="submit" size="icon" className="rounded-full shrink-0" disabled={!newMessage.trim()}><Send className="h-4 w-4" /></Button>
+            <Button type="submit" size="icon" className="rounded-full shrink-0" disabled={!newMessage.trim() || !visitorReady}><Send className="h-4 w-4" /></Button>
           </form>
         </div>
       )}
