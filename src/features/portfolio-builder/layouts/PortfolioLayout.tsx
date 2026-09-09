@@ -343,11 +343,25 @@ export default function PortfolioLayout({
         {!isBuilderPreview && themeConfig?.store_chat_enabled && themeConfig?.store_chat_mode === 'internal' && (
           <StorefrontChatWidget 
             portfolioId={portfolio?.id} 
+            storeSlug={slug}
             storeName={portfolio?.site_name} 
+            botName={themeConfig?.store_chat_bot_name}
+            headerTitle={themeConfig?.store_chat_header_title}
+            headerSubtitle={themeConfig?.store_chat_header_subtitle}
             aiEnabled={themeConfig?.store_chat_ai_assistant} 
             iconType={themeConfig?.store_chat_icon_type}
             customIconUrl={themeConfig?.store_chat_custom_icon_url}
             welcomeMessage={themeConfig?.store_chat_welcome_message}
+            aiMessageColor={themeConfig?.store_chat_ai_message_color}
+            visitorMessageColor={themeConfig?.store_chat_visitor_message_color}
+            panelBackground={themeConfig?.store_chat_panel_background}
+            panelBackgroundImage={themeConfig?.store_chat_panel_background_image}
+            panelPattern={themeConfig?.store_chat_panel_pattern}
+            sendButtonColor={themeConfig?.store_chat_send_button_color}
+            sendButtonLabel={themeConfig?.store_chat_send_button_label}
+            inputPlaceholder={themeConfig?.store_chat_input_placeholder}
+            launcherPosition={themeConfig?.store_chat_launcher_position}
+            launcherStyle={themeConfig?.store_chat_launcher_style}
             suggestedQuestions={themeConfig?.store_chat_suggested_questions}
           />
         )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/supabaseClient';
 import { Bot, MessageCircle, Save, Phone, Sparkles, ChevronLeft, Eye, Plus, X, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,21 +18,36 @@ interface SuggestedQuestion {
 type ThemeConfig = Record<string, unknown>;
 
 export default function StoreBotSettingsPage() {
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const queryPortfolioId = searchParams.get('portfolioId');
     const { actorData } = useOutletContext<ActorDashboardContextType>();
     const [portfolios, setPortfolios] = useState<Array<{ id: string; site_name: string | null; theme_config: ThemeConfig | null }>>([]);
     const [activePortfolioId, setActivePortfolioId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const savedConfigRef = useRef('');
 
     const [config, setConfig] = useState({
         store_chat_enabled: false,
         store_chat_mode: 'internal',
         store_chat_whatsapp_number: '',
         store_chat_welcome_message: 'Hi! 👋 How can we help you today?',
+        store_chat_bot_name: 'UCP Assistant',
+        store_chat_header_title: '',
+        store_chat_header_subtitle: '',
         store_chat_ai_assistant: false,
         store_chat_ai_prompt: '',
+        store_chat_training_text: '',
+        store_chat_ai_message_color: '#6366f1',
+        store_chat_visitor_message_color: '#111827',
+        store_chat_panel_background: '#f8fafc',
+        store_chat_panel_background_image: '',
+        store_chat_panel_pattern: 'none',
+        store_chat_send_button_color: '#111827',
+        store_chat_send_button_label: 'Send message',
+        store_chat_input_placeholder: 'Type a message...',
+        store_chat_launcher_position: 'right',
+        store_chat_launcher_style: 'message',
         store_chat_marketing_optin: false,
         store_chat_marketing_coupon: '',
         store_chat_icon_type: 'message',
@@ -74,19 +89,35 @@ export default function StoreBotSettingsPage() {
         const getString = (key: string, fallback: string) => typeof themeConfig?.[key] === 'string' ? themeConfig[key] as string : fallback;
         const getBoolean = (key: string, fallback: boolean) => typeof themeConfig?.[key] === 'boolean' ? themeConfig[key] as boolean : fallback;
         const suggestedQuestions = Array.isArray(themeConfig?.store_chat_suggested_questions) ? themeConfig.store_chat_suggested_questions : [];
-        setConfig({
+        const nextConfig = {
             store_chat_enabled: getBoolean('store_chat_enabled', false),
             store_chat_mode: getString('store_chat_mode', 'internal'),
             store_chat_whatsapp_number: getString('store_chat_whatsapp_number', ''),
             store_chat_welcome_message: getString('store_chat_welcome_message', 'Hi! 👋 How can we help you today?'),
+            store_chat_bot_name: getString('store_chat_bot_name', 'UCP Assistant'),
+            store_chat_header_title: getString('store_chat_header_title', ''),
+            store_chat_header_subtitle: getString('store_chat_header_subtitle', ''),
             store_chat_ai_assistant: getBoolean('store_chat_ai_assistant', false),
             store_chat_ai_prompt: getString('store_chat_ai_prompt', ''),
+            store_chat_training_text: getString('store_chat_training_text', ''),
+            store_chat_ai_message_color: getString('store_chat_ai_message_color', '#6366f1'),
+            store_chat_visitor_message_color: getString('store_chat_visitor_message_color', '#111827'),
+            store_chat_panel_background: getString('store_chat_panel_background', '#f8fafc'),
+            store_chat_panel_background_image: getString('store_chat_panel_background_image', ''),
+            store_chat_panel_pattern: getString('store_chat_panel_pattern', 'none'),
+            store_chat_send_button_color: getString('store_chat_send_button_color', '#111827'),
+            store_chat_send_button_label: getString('store_chat_send_button_label', 'Send message'),
+            store_chat_input_placeholder: getString('store_chat_input_placeholder', 'Type a message...'),
+            store_chat_launcher_position: getString('store_chat_launcher_position', 'right'),
+            store_chat_launcher_style: getString('store_chat_launcher_style', 'message'),
             store_chat_marketing_optin: getBoolean('store_chat_marketing_optin', false),
             store_chat_marketing_coupon: getString('store_chat_marketing_coupon', ''),
             store_chat_icon_type: getString('store_chat_icon_type', 'message'),
             store_chat_custom_icon_url: getString('store_chat_custom_icon_url', ''),
             store_chat_suggested_questions: suggestedQuestions.map((q): SuggestedQuestion => typeof q === 'string' ? { question: q, answer: '' } : q as SuggestedQuestion)
-        });
+        };
+        setConfig(nextConfig);
+        savedConfigRef.current = JSON.stringify(nextConfig);
     };
 
     const handleSave = async () => {
@@ -111,8 +142,17 @@ export default function StoreBotSettingsPage() {
             toast.success("Chat widget settings updated!");
             // Update local state
             setPortfolios(prev => prev.map(port => port.id === activePortfolioId ? { ...port, theme_config: updatedThemeConfig } : port));
+            savedConfigRef.current = JSON.stringify(config);
         }
         setSaving(false);
+    };
+
+    const isDirty = savedConfigRef.current !== JSON.stringify(config);
+    const selectPortfolio = (portfolioId: string, themeConfig: ThemeConfig | null) => {
+        if (isDirty && !window.confirm('Discard unsaved chat changes and switch stores?')) return;
+        setSearchParams({ portfolioId });
+        setActivePortfolioId(portfolioId);
+        loadConfig(themeConfig);
     };
 
     if (loading) return <div className="p-8 text-muted-foreground">Loading settings...</div>;
@@ -137,10 +177,7 @@ export default function StoreBotSettingsPage() {
                             <Card 
                                 key={p.id} 
                                 className="cursor-pointer hover:border-primary/50 hover:shadow-md transition-all group"
-                                onClick={() => {
-                                    setActivePortfolioId(p.id);
-                                    loadConfig(tc);
-                                }}
+                                onClick={() => selectPortfolio(p.id, tc)}
                             >
                                 <CardContent className="p-6">
                                     <div className="flex items-start justify-between mb-4">
@@ -184,7 +221,7 @@ export default function StoreBotSettingsPage() {
         <div className="max-w-6xl mx-auto space-y-8 p-4 md:p-6 pb-24">
             <div className="flex flex-col gap-4">
                 {portfolios.length > 1 && (
-                    <Button variant="ghost" size="sm" onClick={() => setActivePortfolioId(null)} className="w-fit -ml-3 text-muted-foreground hover:text-foreground">
+                    <Button variant="ghost" size="sm" onClick={() => { if (!isDirty || window.confirm('Discard unsaved chat changes and leave this store?')) { setSearchParams({}); setActivePortfolioId(null); } }} className="w-fit -ml-3 text-muted-foreground hover:text-foreground">
                         <ChevronLeft className="w-4 h-4 mr-1" /> Back to all bots
                     </Button>
                 )}
@@ -196,9 +233,15 @@ export default function StoreBotSettingsPage() {
                 </div>
             </div>
 
+            <nav aria-label="Chat settings sections" className="sticky top-0 z-20 flex gap-1 overflow-x-auto rounded-xl border bg-background/95 p-1 shadow-sm backdrop-blur">
+                <a href="#chat-experience" className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Experience</a>
+                <a href="#chat-knowledge" className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Knowledge & AI</a>
+                <a href="#chat-conversion" className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Conversion</a>
+            </nav>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             <div className="lg:col-span-2 space-y-6">
-            <div className="rounded-xl border bg-card p-6 shadow-sm space-y-8">
+            <div id="chat-experience" className="rounded-xl border bg-card p-6 shadow-sm space-y-8 scroll-mt-20">
                 <div className="flex items-center justify-between border-b pb-6">
                     <div>
                         <h3 className="font-semibold flex items-center gap-2"><MessageCircle className="h-4 w-4 text-primary" /> Enable Storefront Chat</h3>
@@ -272,6 +315,44 @@ export default function StoreBotSettingsPage() {
                         <Input placeholder="Hi! 👋 How can we help you today?" value={config.store_chat_welcome_message} onChange={e => setConfig({...config, store_chat_welcome_message: e.target.value})} />
                     </div>
 
+                    <div className="space-y-2">
+                        <Label>Assistant Name</Label>
+                        <Input placeholder="UCP Assistant" value={config.store_chat_bot_name} onChange={e => setConfig({...config, store_chat_bot_name: e.target.value})} maxLength={40} />
+                        <p className="text-xs text-muted-foreground">This name appears in the chat and is used by the AI assistant.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2"><Label>Chat Header Title</Label><Input placeholder="Support desk" value={config.store_chat_header_title} onChange={e => setConfig({...config, store_chat_header_title: e.target.value})} maxLength={60} /></div>
+                        <div className="space-y-2"><Label>Chat Header Subtitle</Label><Input placeholder="We are here to help" value={config.store_chat_header_subtitle} onChange={e => setConfig({...config, store_chat_header_subtitle: e.target.value})} maxLength={80} /></div>
+                    </div>
+
+                    <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
+                        <Label>Chat Theme</Label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {[
+                                ['store_chat_ai_message_color', 'AI messages'],
+                                ['store_chat_visitor_message_color', 'Visitor messages'],
+                                ['store_chat_send_button_color', 'Header & send'],
+                                ['store_chat_panel_background', 'Chat background'],
+                            ].map(([key, label]) => (
+                                <label key={key} className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <input type="color" value={config[key as keyof typeof config] as string} onChange={e => setConfig({...config, [key]: e.target.value})} className="h-9 w-9 cursor-pointer rounded border bg-transparent p-0.5" />
+                                    {label}
+                                </label>
+                            ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-2"><Label>Launcher side</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={config.store_chat_launcher_position} onChange={e => setConfig({...config, store_chat_launcher_position: e.target.value})}><option value="right">Right</option><option value="left">Left</option></select></div>
+                            <div className="space-y-2"><Label>Launcher style</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={config.store_chat_launcher_style} onChange={e => setConfig({...config, store_chat_launcher_style: e.target.value})}><option value="message">Message</option><option value="bot">Bot</option><option value="sparkles">Sparkles</option><option value="peek">Peek from edge</option><option value="custom">Custom image</option></select></div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="space-y-2"><Label>Background pattern</Label><select className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={config.store_chat_panel_pattern} onChange={e => setConfig({...config, store_chat_panel_pattern: e.target.value})}><option value="none">Clean</option><option value="dots">Soft dots</option><option value="grid">Grid</option><option value="diagonal">Diagonal</option></select></div>
+                            <div className="space-y-2"><Label>Input placeholder</Label><Input value={config.store_chat_input_placeholder} onChange={e => setConfig({...config, store_chat_input_placeholder: e.target.value})} maxLength={60} /></div>
+                            <div className="space-y-2"><Label>Send button label</Label><Input value={config.store_chat_send_button_label} onChange={e => setConfig({...config, store_chat_send_button_label: e.target.value})} maxLength={40} /></div>
+                        </div>
+                        <div className="space-y-2"><Label>Background image URL</Label><Input value={config.store_chat_panel_background_image} onChange={e => setConfig({...config, store_chat_panel_background_image: e.target.value})} placeholder="Optional: https://..." /><p className="text-xs text-muted-foreground">Use a calm, low-contrast image. A readability overlay is applied automatically.</p></div>
+                    </div>
+
                     <div className="space-y-3 pt-2">
                          <Label>Suggested Questions & Pre-defined Answers</Label>
                          <p className="text-xs text-muted-foreground mt-1 mb-2">Provide clickable conversation starters and instant answers (e.g. FAQs).</p>
@@ -327,12 +408,17 @@ export default function StoreBotSettingsPage() {
                                 <Label className="text-indigo-900 dark:text-indigo-200">AI System Prompt (Bot Personality & Knowledge)</Label>
                                 <textarea 
                                     className="flex min-h-[100px] w-full rounded-md border border-indigo-500/30 bg-background/50 px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                    placeholder="e.g. You are a polite customer support agent for my brand. Always speak in French or English. You can offer a 10% discount using code WELCOME10..."
+                                    placeholder="Describe the assistant's personality, tone, language, and rules..."
                                     value={config.store_chat_ai_prompt || ''} 
                                     onChange={e => setConfig({...config, store_chat_ai_prompt: e.target.value})} 
                                 />
                             </div>
-                            <div className={`space-y-4 pt-4 border-t border-indigo-500/20 transition-opacity ${!config.store_chat_ai_assistant ? 'hidden' : 'block'}`}>
+                            <div id="chat-knowledge" className="space-y-2 scroll-mt-20">
+                                <Label className="text-indigo-900 dark:text-indigo-200">Training Notes</Label>
+                                <textarea className="flex min-h-[140px] w-full rounded-md border border-indigo-500/30 bg-background/50 px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" placeholder="Add plain-text knowledge: shipping rules, services, returns, brand facts, escalation rules..." value={config.store_chat_training_text} onChange={e => setConfig({...config, store_chat_training_text: e.target.value})} />
+                                <p className="text-xs opacity-70">The assistant uses this text as private store knowledge. Do not paste passwords or payment secrets.</p>
+                            </div>
+                            <div id="chat-conversion" className={`space-y-4 pt-4 border-t border-indigo-500/20 transition-opacity scroll-mt-20 ${!config.store_chat_ai_assistant ? 'hidden' : 'block'}`}>
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h5 className="font-semibold text-sm">Lead Generation (Discounts)</h5>
@@ -346,7 +432,7 @@ export default function StoreBotSettingsPage() {
                                 {config.store_chat_marketing_optin && (
                                     <div className="space-y-2">
                                         <Label className="text-indigo-900 dark:text-indigo-200">Default Coupon Code</Label>
-                                        <Input value={config.store_chat_marketing_coupon || ''} onChange={e => setConfig({...config, store_chat_marketing_coupon: e.target.value})} placeholder="e.g. WELCOME10" className="bg-background/50 border-indigo-500/30 text-indigo-950 dark:text-indigo-100 placeholder:text-indigo-900/40" />
+                                        <Input value={config.store_chat_marketing_coupon || ''} onChange={e => setConfig({...config, store_chat_marketing_coupon: e.target.value})} placeholder="Optional: your active coupon code" className="bg-background/50 border-indigo-500/30 text-indigo-950 dark:text-indigo-100 placeholder:text-indigo-900/40" />
                                     </div>
                                 )}
                             </div>
@@ -355,7 +441,10 @@ export default function StoreBotSettingsPage() {
                 </div>
             </div>
 
-            <Button size="lg" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" /> Save Settings</>}</Button>
+            <div className="sticky bottom-4 z-20 flex items-center justify-between gap-4 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
+                <span className="text-xs text-muted-foreground">{isDirty ? 'Unsaved changes' : 'All changes saved'}</span>
+                <Button size="lg" onClick={handleSave} disabled={saving || !isDirty}>{saving ? 'Saving...' : <><Save className="mr-2 h-4 w-4" /> Save changes</>}</Button>
+            </div>
             </div>
 
             {/* Live Preview Pane */}
@@ -367,11 +456,24 @@ export default function StoreBotSettingsPage() {
                        <StorefrontChatWidget
                           portfolioId={activePortfolioId}
                           storeName={selectedStore?.site_name}
+                          botName={config.store_chat_bot_name}
+                          headerTitle={config.store_chat_header_title}
+                          headerSubtitle={config.store_chat_header_subtitle}
                           aiEnabled={config.store_chat_ai_assistant}
                           iconType={config.store_chat_icon_type}
                           customIconUrl={config.store_chat_custom_icon_url}
                           welcomeMessage={config.store_chat_welcome_message}
-                              suggestedQuestions={config.store_chat_suggested_questions}
+                          aiMessageColor={config.store_chat_ai_message_color}
+                          visitorMessageColor={config.store_chat_visitor_message_color}
+                          panelBackground={config.store_chat_panel_background}
+                          panelBackgroundImage={config.store_chat_panel_background_image}
+                          panelPattern={config.store_chat_panel_pattern as 'none' | 'dots' | 'grid' | 'diagonal'}
+                          sendButtonColor={config.store_chat_send_button_color}
+                          sendButtonLabel={config.store_chat_send_button_label}
+                          inputPlaceholder={config.store_chat_input_placeholder}
+                          launcherPosition={config.store_chat_launcher_position as 'left' | 'right'}
+                          launcherStyle={config.store_chat_launcher_style as 'message' | 'bot' | 'sparkles' | 'custom' | 'peek'}
+                          suggestedQuestions={config.store_chat_suggested_questions}
                           isInline={true}
                        />
                    )}
