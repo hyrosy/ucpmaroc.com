@@ -24,6 +24,7 @@ interface StorefrontChatWidgetProps {
   panelBackground?: string;
   panelBackgroundImage?: string;
   panelPattern?: 'none' | 'dots' | 'grid' | 'diagonal';
+  panelGradient?: string;
   sendButtonColor?: string;
   sendButtonLabel?: string;
   inputPlaceholder?: string;
@@ -49,7 +50,7 @@ interface StoreMessage {
   metadata?: Record<string, unknown> | null;
 }
 
-const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId, storeSlug, storeName = 'Store Support', botName = 'UCP Assistant', headerTitle, headerSubtitle, aiEnabled = false, iconType = 'message', customIconUrl = '', welcomeMessage, suggestedQuestions = [], aiMessageColor = '#6366f1', visitorMessageColor = '#111827', panelBackground = '#f8fafc', panelBackgroundImage = '', panelPattern = 'none', sendButtonColor = '#111827', sendButtonLabel = 'Send message', inputPlaceholder = 'Type a message...', launcherPosition = 'right', launcherStyle, voiceMessagesEnabled = false, liveVoiceEnabled = false, isInline = false }) => {
+const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId, storeSlug, storeName = 'Store Support', botName = 'UCP Assistant', headerTitle, aiEnabled = false, iconType = 'message', customIconUrl = '', welcomeMessage, suggestedQuestions = [], aiMessageColor = '#6366f1', visitorMessageColor = '#111827', panelBackground = '#f8fafc', panelBackgroundImage = '', panelPattern = 'none', panelGradient = '', sendButtonColor = '#111827', sendButtonLabel = 'Send message', inputPlaceholder = 'Type a message...', launcherPosition = 'right', launcherStyle, voiceMessagesEnabled = false, liveVoiceEnabled = false, isInline = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<StoreMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -436,10 +437,10 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
     <div className={cn(isInline ? "relative flex flex-col items-end w-full" : `fixed bottom-6 z-50 flex flex-col items-end ${launcherPosition === 'left' ? 'left-6' : 'right-6'}`)}>
       {isOpen && (
         <div role="dialog" aria-modal="true" aria-label={`${headerTitle || storeName} chat`} className={cn("mb-4 flex max-h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl transition-all", isInline ? "h-[450px] w-full max-w-[380px]" : "h-[min(450px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-2rem))]")}>
-          <div className="flex items-center justify-between p-4 text-white" style={{ backgroundColor: sendButtonColor }}>
+          <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5 text-white" style={{ background: sendButtonColor }}>
             <div>
-              <h3 className="font-semibold flex items-center gap-2">{headerTitle || storeName} {aiEnabled && <Bot className="h-4 w-4" />}</h3>
-              <p className="text-xs opacity-90">{headerSubtitle || (aiEnabled ? `${botName} is online` : 'We typically reply in a few minutes.')}</p>
+              <h3 className="flex items-center gap-2 text-sm font-semibold">{botName || headerTitle || storeName} {aiEnabled && <Bot className="h-3.5 w-3.5" />}</h3>
+              <p className="flex items-center gap-1 text-[10px] opacity-75"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />{aiEnabled ? 'Online' : 'Usually replies soon'}</p>
             </div>
             <div className="flex items-center gap-1">
               <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20" onClick={handleResetChat} title="Restart Conversation">
@@ -450,8 +451,8 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
               </Button>
             </div>
           </div>
-          <ScrollArea className="relative flex-1 p-4" style={{ backgroundColor: panelBackground, backgroundImage: panelBackgroundImage ? `linear-gradient(rgba(248,250,252,.78), rgba(248,250,252,.78)), url(${panelBackgroundImage})` : patternStyle?.backgroundImage, backgroundSize: panelBackgroundImage ? 'cover' : patternStyle?.backgroundSize, backgroundPosition: 'center', ...(!panelBackgroundImage ? patternStyle : {}) }}>
-            <div className="space-y-4">
+          <ScrollArea className="relative flex-1" style={{ backgroundColor: panelBackground, backgroundImage: panelGradient || (panelBackgroundImage ? `linear-gradient(rgba(248,250,252,.78), rgba(248,250,252,.78)), url(${panelBackgroundImage})` : patternStyle?.backgroundImage), backgroundSize: panelBackgroundImage ? 'cover' : patternStyle?.backgroundSize, backgroundPosition: 'center', ...(!panelBackgroundImage && !panelGradient ? patternStyle : {}) }}>
+            <div className="space-y-4 p-4 pb-24">
                 {liveCallStatus !== 'idle' && (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground">
                     <div className="flex items-center justify-between gap-3">
@@ -568,10 +569,10 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
                 <div ref={scrollRef} />
             </div>
           </ScrollArea>
-          <form onSubmit={handleSend} className="flex items-center gap-2 border-t bg-background p-3">
+          <form onSubmit={handleSend} className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-1.5 rounded-2xl border border-border/60 bg-background/90 p-1.5 shadow-lg backdrop-blur-xl">
             {voiceMessagesEnabled && <Button type="button" variant={isRecording ? 'destructive' : 'outline'} size="icon" onClick={isRecording ? stopVoiceRecording : startVoiceRecording} disabled={isTranscribing || liveCallStatus !== 'idle'} aria-label={isRecording ? 'Stop voice recording' : 'Record voice message'} title={isTranscribing ? 'Transcribing voice message' : isRecording ? 'Stop recording' : 'Record voice message'}>{isTranscribing ? <Bot className="h-4 w-4 animate-pulse" /> : isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}</Button>}
             {liveVoiceEnabled && <Button type="button" variant={liveCallStatus === 'active' ? 'destructive' : 'outline'} size="icon" onClick={liveCallStatus === 'idle' ? startLiveVoice : stopLiveVoice} disabled={isRecording || liveCallStatus === 'connecting'} aria-label={liveCallStatus === 'active' ? 'End live voice' : 'Start live voice'} title={liveCallStatus === 'active' ? 'End live voice' : 'Start live voice'}>{liveCallStatus === 'active' ? <PhoneOff className="h-4 w-4" /> : <Phone className="h-4 w-4" />}</Button>}
-            <Input aria-label={inputPlaceholder} placeholder={inputPlaceholder} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1 rounded-full bg-muted/30 focus-visible:ring-primary" />
+            <Input aria-label={inputPlaceholder} placeholder={inputPlaceholder} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="h-10 flex-1 rounded-xl border-0 bg-transparent shadow-none focus-visible:ring-0" />
             <Button type="submit" size="icon" className="rounded-full shrink-0 text-white" style={{ backgroundColor: sendButtonColor }} disabled={!newMessage.trim() || !visitorReady} title={sendButtonLabel} aria-label={sendButtonLabel}><Send className="h-4 w-4" /></Button>
           </form>
         </div>
