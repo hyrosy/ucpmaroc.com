@@ -356,6 +356,7 @@ export default function PortfolioLayout({
             visitorMessageColor={themeConfig?.store_chat_visitor_message_color}
             panelBackground={themeConfig?.store_chat_panel_background}
             panelBackgroundImage={themeConfig?.store_chat_panel_background_image}
+            panelGradient={themeConfig?.store_chat_panel_gradient}
             panelPattern={themeConfig?.store_chat_panel_pattern}
             sendButtonColor={themeConfig?.store_chat_send_button_color}
             sendButtonLabel={themeConfig?.store_chat_send_button_label}

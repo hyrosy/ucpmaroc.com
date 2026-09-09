@@ -45,6 +45,7 @@ export default function StoreBotSettingsPage() {
         store_chat_panel_background: '#f8fafc',
         store_chat_panel_background_image: '',
         store_chat_panel_pattern: 'none',
+        store_chat_panel_gradient: '',
         store_chat_send_button_color: '#111827',
         store_chat_send_button_label: 'Send message',
         store_chat_input_placeholder: 'Type a message...',
@@ -110,6 +111,7 @@ export default function StoreBotSettingsPage() {
             store_chat_panel_background: getString('store_chat_panel_background', '#f8fafc'),
             store_chat_panel_background_image: getString('store_chat_panel_background_image', ''),
             store_chat_panel_pattern: getString('store_chat_panel_pattern', 'none'),
+            store_chat_panel_gradient: getString('store_chat_panel_gradient', ''),
             store_chat_send_button_color: getString('store_chat_send_button_color', '#111827'),
             store_chat_send_button_label: getString('store_chat_send_button_label', 'Send message'),
             store_chat_input_placeholder: getString('store_chat_input_placeholder', 'Type a message...'),
@@ -176,6 +178,15 @@ export default function StoreBotSettingsPage() {
         } catch {
             setMicrophoneStatus('blocked');
         }
+    };
+
+    const applyChatPreset = (preset: string) => {
+        const presets: Record<string, Partial<typeof config>> = {
+            light: { store_chat_panel_background: '#f8fafc', store_chat_panel_gradient: '', store_chat_ai_message_color: '#334155', store_chat_visitor_message_color: '#0f172a', store_chat_send_button_color: '#0f172a', store_chat_panel_pattern: 'dots' },
+            midnight: { store_chat_panel_background: '#0f172a', store_chat_panel_gradient: 'linear-gradient(145deg, #0f172a 0%, #1e293b 100%)', store_chat_ai_message_color: '#334155', store_chat_visitor_message_color: '#020617', store_chat_send_button_color: '#020617', store_chat_panel_pattern: 'none' },
+            aurora: { store_chat_panel_background: '#172554', store_chat_panel_gradient: 'linear-gradient(145deg, #172554 0%, #312e81 48%, #0f766e 100%)', store_chat_ai_message_color: '#4338ca', store_chat_visitor_message_color: '#0f172a', store_chat_send_button_color: '#1e1b4b', store_chat_panel_pattern: 'none' },
+        };
+        setConfig(current => ({ ...current, ...(presets[preset] || {}) }));
     };
 
     if (loading) return <div className="p-8 text-muted-foreground">Loading settings...</div>;
@@ -405,6 +416,14 @@ export default function StoreBotSettingsPage() {
 
                     <div className="space-y-3 rounded-xl border bg-muted/20 p-4">
                         <Label>Chat Theme</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {[['light', 'Light'], ['midnight', 'Midnight'], ['aurora', 'Aurora']].map(([value, label]) => (
+                                <button type="button" key={value} onClick={() => applyChatPreset(value)} className="group overflow-hidden rounded-xl border bg-background text-left transition-colors hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                                    <span className={`block h-10 ${value === 'light' ? 'bg-slate-100' : value === 'midnight' ? 'bg-gradient-to-br from-slate-950 to-slate-700' : 'bg-gradient-to-br from-blue-900 via-indigo-800 to-teal-700'}`} />
+                                    <span className="block px-2 py-1.5 text-xs font-medium">{label}</span>
+                                </button>
+                            ))}
+                        </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {[
                                 ['store_chat_ai_message_color', 'AI messages'],
@@ -574,6 +593,7 @@ export default function StoreBotSettingsPage() {
                           visitorMessageColor={config.store_chat_visitor_message_color}
                           panelBackground={config.store_chat_panel_background}
                           panelBackgroundImage={config.store_chat_panel_background_image}
+                          panelGradient={config.store_chat_panel_gradient}
                           panelPattern={config.store_chat_panel_pattern as 'none' | 'dots' | 'grid' | 'diagonal'}
                           sendButtonColor={config.store_chat_send_button_color}
                           sendButtonLabel={config.store_chat_send_button_label}
