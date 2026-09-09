@@ -1,0 +1,1 @@
+const m=t=>{if(!t)return null;const a=/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/,o=t.match(a);return o&&o[2].length===11?o[2]:null},c=()=>{const o="localhost,127.0.0.1,ucpmaroc.com,www.ucpmaroc.com".split(",").map(n=>n.trim()).filter(Boolean),s=window.location.hostname;return!o.some(n=>s.includes(n))};export{m as g,c as i};

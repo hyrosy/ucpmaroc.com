@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/supabaseClient";
 import { Outlet, NavLink, useNavigate, Link } from "react-router-dom";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   Users,
@@ -212,7 +212,7 @@ const AdminDashboardLayout = () => {
           className={cn(
             "flex-1 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
             isCollapsed ? "md:ml-[72px]" : "md:ml-[260px]",
-            "pb-[96px] md:pb-8"
+            "app-bottom-safe md:pb-8"
           )}
         >
           <Outlet />
@@ -220,7 +220,7 @@ const AdminDashboardLayout = () => {
       </div>
 
       {/* --- MOBILE NAV --- */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/60 pb-safe">
+      <nav aria-label="Primary admin navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-t border-border/60 pb-safe">
         <div className="flex justify-around items-center h-16 px-1">
           {NAV_GROUPS[0].items.map((item) => (
             <NavLink
@@ -228,7 +228,7 @@ const AdminDashboardLayout = () => {
               to={item.to}
               className={({ isActive }) =>
                 cn(
-                  "group flex flex-col items-center justify-center w-full h-full space-y-1 relative",
+                  "group flex min-h-11 flex-col items-center justify-center w-full h-full space-y-1 relative focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-inset",
                   isActive ? "text-red-500" : "text-muted-foreground"
                 )
               }
@@ -252,7 +252,7 @@ const AdminDashboardLayout = () => {
           ))}
           <Sheet>
             <SheetTrigger asChild>
-              <button className="flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground">
+              <button type="button" aria-label="Open admin menu" className="flex min-h-11 flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-inset">
                 <div className="p-1.5 rounded-xl hover:bg-muted">
                   <Menu className="h-5 w-5" />
                 </div>

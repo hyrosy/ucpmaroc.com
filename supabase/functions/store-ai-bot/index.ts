@@ -3,12 +3,18 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 serve(async (req) => {
   try {
-    // 1. Parse the Webhook Payload
-    const payload = await req.json();
+    const webhookSecret = Deno.env.get('STORE_AI_BOT_WEBHOOK_SECRET');
+    const signature = req.headers.get('x-store-webhook-signature');
+    const rawBody = await req.text();
+    if (!webhookSecret || !signature || !(await isValidSignature(rawBody, signature, webhookSecret))) {
+      return new Response('Invalid webhook signature', { status: 401 });
+    }
+
+    const payload = JSON.parse(rawBody) as { record?: StoreMessageRecord };
     const visitorMessage = payload.record;
 
     // Only react to messages sent by visitors
-    if (visitorMessage.sender_type !== 'visitor') {
+    if (!visitorMessage || visitorMessage.sender_type !== 'visitor' || !visitorMessage.conversation_id || !visitorMessage.content) {
       return new Response("Ignored: Not a visitor message", { status: 200 });
     }
 
@@ -16,6 +22,25 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    if (visitorMessage.id) {
+      const { data: event, error: eventError } = await supabase
+        .from('store_ai_bot_events')
+        .select('status, updated_at')
+        .eq('message_id', visitorMessage.id)
+        .maybeSingle();
+      if (eventError) return new Response('Event state unavailable', { status: 503 });
+      if (event?.status === 'completed') return new Response('Already processed', { status: 200 });
+      const staleBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: claimed } = await supabase
+        .from('store_ai_bot_events')
+        .update({ status: 'processing', updated_at: new Date().toISOString() })
+        .eq('message_id', visitorMessage.id)
+        .or(`status.eq.pending,and(status.eq.processing,updated_at.lt.${staleBefore})`)
+        .select('message_id')
+        .maybeSingle();
+      if (!claimed) return new Response('Already processing', { status: 200 });
+    }
 
     // 3. Get Conversation & Store Settings
     const { data: conv } = await supabase
@@ -38,18 +63,24 @@ serve(async (req) => {
       .single();
 
     const config = portfolio?.theme_config || {};
+
+    if (!config.store_chat_enabled || config.store_chat_mode !== 'internal') {
+      return new Response('Chat bot is not enabled for this storefront', { status: 200 });
+    }
     
     // 4. Intercept Pre-defined FAQs (Answers instantly without hitting OpenAI)
-    const faqs = config.store_chat_suggested_questions || [];
-    const matchedFaq = faqs.find((f: any) => typeof f === 'object' && f.question && f.question.trim() === visitorMessage.content.trim() && f.answer && f.answer.trim());
+    const faqs = Array.isArray(config.store_chat_suggested_questions) ? config.store_chat_suggested_questions : [];
+    const matchedFaq = faqs.find((f): f is { question: string; answer: string } => typeof f === 'object' && f !== null && typeof f.question === 'string' && f.question.trim() === visitorMessage.content.trim() && typeof f.answer === 'string' && Boolean(f.answer.trim()));
     
     if (matchedFaq) {
-      await supabase.from('store_messages').insert({
+      const { error: faqError } = await supabase.from('store_messages').insert({
         conversation_id: visitorMessage.conversation_id,
         sender_type: 'ai_bot',
         content: matchedFaq.answer.trim()
       });
+      if (faqError) return new Response('Failed to save FAQ reply', { status: 503 });
       await supabase.from('store_conversations').update({ updated_at: new Date().toISOString() }).eq('id', visitorMessage.conversation_id);
+      await markEventCompleted(supabase, visitorMessage.id);
       return new Response("Replied with predefined FAQ answer", { status: 200 });
     }
 
@@ -58,31 +89,33 @@ serve(async (req) => {
       // If AI is disabled, send an automated away message ONLY on the very first message
       const { count } = await supabase.from('store_messages').select('*', { count: 'exact', head: true }).eq('conversation_id', visitorMessage.conversation_id);
       if (count === 1) {
-        await supabase.from('store_messages').insert({
+        const { error: awayError } = await supabase.from('store_messages').insert({
           conversation_id: visitorMessage.conversation_id,
           sender_type: 'ai_bot',
           content: "Hi there! 👋 Our live agents are currently away. Please leave your name and email address, along with your question, and we'll get back to you as soon as possible!"
         });
+        if (awayError) return new Response('Failed to save away reply', { status: 503 });
         await supabase.from('store_conversations').update({ updated_at: new Date().toISOString() }).eq('id', visitorMessage.conversation_id);
       }
+      await markEventCompleted(supabase, visitorMessage.id);
       return new Response("AI is disabled for this store", { status: 200 });
     }
 
     // 5. Fetch Store Product Catalog
     const { data: products } = await supabase
       .from('pro_products')
-      .select('title, short_description, price, delivery_type, stock_count')
+      .select('id, title, short_description, price, compare_at_price, images, slug, delivery_type, stock_count, action_type, checkout_url')
       .eq('portfolio_id', conv.portfolio_id)
       .limit(50); // Limit to top 50 to save context tokens
 
     // Format the catalog so the AI understands it easily
     const catalogText = products?.map(p => {
       const availability = (p.delivery_type === 'physical' && p.stock_count <= 0) ? 'Out of Stock' : 'In Stock';
-      return `- ${p.title}: $${p.price} (${availability}) - ${p.short_description || ''}`;
+      return `- Product ID ${p.id}: ${p.title}: $${p.price} (${availability}) - ${p.short_description || ''}`;
     }).join('\n') || 'No products available currently.';
 
     // Parse Portfolio Sections for General Context
-    const sectionsText = portfolio?.sections?.map((s: any) => {
+    const sectionsText = portfolio?.sections?.map((s: Record<string, unknown>) => {
       let text = `- [${s.type.toUpperCase()}] `;
       if (s.data?.title) text += `${s.data.title}: `;
       const desc = s.data?.description || s.data?.content || s.data?.text || s.data?.about_text;
@@ -91,9 +124,10 @@ serve(async (req) => {
     }).filter((t: string) => t.length > 15).join('\n') || 'No additional portfolio sections.';
 
     // 6. Build the Master System Prompt
-    const systemPrompt = `You are the AI Customer Support Assistant for ${portfolio?.site_name || 'this store'}.
+    const systemPrompt = `You are ${config.store_chat_bot_name || 'UCP Assistant'}, the AI Customer Support Assistant for ${portfolio?.site_name || 'this store'}.
 IMPORTANT: You MUST introduce yourself as an AI assistant if asked.
 Creator's Specific Instructions: ${config.store_chat_ai_prompt || 'Be polite, helpful, and concise.'}
+Private store training notes: ${config.store_chat_training_text || 'No additional training notes provided.'}
 
 Here is our current product catalog. Use this to answer questions and recommend products:
 ${catalogText}
@@ -102,9 +136,12 @@ Here is information about the creator's portfolio, biography, services, and PRE-
 ${sectionsText}
 
 RULES:
-1. If the user asks about the status of an order, ask for their email address and order number, then use "check_order_status".
-2. If you think the user is a potential client/buyer, ask for their name and email address so the team can follow up. Once provided, use the "capture_contact_info" tool.
-3. If the user explicitly asks to speak to a human agent, or needs complex support you cannot provide, use the "transfer_to_agent" tool to hand off the conversation.`;
+1. If the user asks about the status of an order, include the exact marker [ORDER_FORM] so the storefront can show an email and order number form. Once provided, use "check_order_status".
+2. If you think the user is a potential client/buyer, include the exact marker [CONTACT_FORM] so the storefront can show a name and email form. Once provided, use the "capture_contact_info" tool.
+3. If the user explicitly asks to speak to a human agent, or needs complex support you cannot provide, first include [CONTACT_FORM] and ask for their name and email. After those details are provided and saved with "capture_contact_info", use the "transfer_to_agent" tool. Do not expose a handoff control unless the visitor asks for human help.
+4. Never invent a discount code. Only use a code supplied by the store owner or returned by the discount tool.
+5. Recommend products using exact names, prices, and availability from the catalog. When the visitor asks for recommendations or product details, use the "recommend_products" tool with up to 3 matching product IDs.
+6. When you need contact details, include the exact marker [CONTACT_FORM] so the storefront can show a name and email form.`;
 
     const marketingPrompt = config.store_chat_marketing_optin ? `
 IMPORTANT - COUPONS & LEADS:
@@ -112,7 +149,7 @@ If the user asks about a discount or promo code, offer them a discount in exchan
 1. First, ask for their name and email.
 2. Once they provide their name and email, tell them to confirm their subscription by clicking the approve button. You MUST include the exact text "[APPROVE_MARKETING]" in your message so the UI button appears. Do NOT give them the code yet.
 3. When the user explicitly approves (e.g. they say "I approve marketing emails"), use the "subscribe_to_marketing" tool.
-4. After the tool succeeds, use "check_discount_code" to find a valid code (or offer the fallback code ${config.store_chat_marketing_coupon || 'WELCOME10'}) and give it to them!` : '';
+4. After the tool succeeds, use "check_discount_code" to find a valid code. If none is configured or valid, say the team will share a code later; never guess one.` : '';
 
     // 7. Fetch Chat History
     const { data: history } = await supabase
@@ -191,6 +228,17 @@ If the user asks about a discount or promo code, offer them a discount in exchan
         description: "Transfers the conversation to a human agent when the user requests it or needs complex help.",
         parameters: { type: "object", properties: {}, required: [] }
       }
+    }, {
+      type: "function",
+      function: {
+        name: "recommend_products",
+        description: "Shows rich product cards for products from the current catalog.",
+        parameters: {
+          type: "object",
+          properties: { product_ids: { type: "array", items: { type: "string" }, minItems: 1, maxItems: 3 } },
+          required: ["product_ids"]
+        }
+      }
     }];
 
     const openAiKey = Deno.env.get('OPENAI_API_KEY');
@@ -214,6 +262,8 @@ If the user asks about a discount or promo code, offer them a discount in exchan
 
     let aiData = await aiRes.json();
     let message = aiData.choices[0].message;
+    let replyMetadata: Record<string, unknown> | null = null;
+    let replyMessageType = 'text';
 
     // 10. Handle Tool Executions
     if (message.tool_calls) {
@@ -232,17 +282,33 @@ If the user asks about a discount or promo code, offer them a discount in exchan
         if (toolCall.function.name === 'check_order_status') {
           
           // Query Supabase for the exact order
-          const { data: order } = await supabase
+          const email = String(args.email || '').trim().toLowerCase();
+          const orderId = String(args.order_id || '').trim();
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^[A-Za-z0-9_-]{1,64}$/.test(orderId)) {
+            openAiMessages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: 'Please provide a valid email address and order number.' });
+            continue;
+          }
+
+          let { data: order } = await supabase
             .from('pro_orders')
             .select('status, total_price, created_at, order_id_string')
             .eq('portfolio_id', conv.portfolio_id)
-            .ilike('client_email', args.email)
-            .or(`order_id_string.eq.${args.order_id},display_id.ilike.%${args.order_id}%`)
+            .eq('client_email', email)
+            .eq('order_id_string', orderId)
             .maybeSingle();
+          if (!order) {
+            ({ data: order } = await supabase
+              .from('pro_orders')
+              .select('status, total_price, created_at, order_id_string')
+              .eq('portfolio_id', conv.portfolio_id)
+              .eq('client_email', email)
+              .eq('display_id', orderId)
+              .maybeSingle());
+          }
 
           const toolResult = order 
             ? `Order found! Status is "${order.status}". Total: $${order.total_price}. Ordered on: ${new Date(order.created_at).toLocaleDateString()}` 
-            : `No order found for email "${args.email}" and ID "${args.order_id}".`;
+            : `No order found for email "${email}" and ID "${orderId}".`;
 
           openAiMessages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: toolResult });
         } 
@@ -326,6 +392,17 @@ If the user asks about a discount or promo code, offer them a discount in exchan
           await supabase.from('store_conversations').update({ status: 'agent_requested' }).eq('id', visitorMessage.conversation_id);
           openAiMessages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: "Successfully requested human agent. Tell the user an agent will be with them shortly." });
         }
+        else if (toolCall.function.name === 'recommend_products') {
+          const requestedIds = Array.isArray(args.product_ids) ? args.product_ids.filter((id: unknown): id is string => typeof id === 'string').slice(0, 3) : [];
+          const { data: recommendedProducts } = await supabase
+            .from('pro_products')
+            .select('id, title, short_description, price, compare_at_price, images, slug, stock_count, delivery_type, action_type, checkout_url')
+            .eq('portfolio_id', conv.portfolio_id)
+            .in('id', requestedIds);
+          replyMessageType = recommendedProducts?.length ? 'product_recommendation' : 'text';
+          replyMetadata = recommendedProducts?.length ? { products: recommendedProducts } : null;
+          openAiMessages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: recommendedProducts?.length ? `Displayed ${recommendedProducts.length} product card(s). Briefly explain why they match.` : 'No matching products found.' });
+        }
       }
 
       // Second Call to OpenAI (Now containing the Tool results)
@@ -346,9 +423,49 @@ If the user asks about a discount or promo code, offer them a discount in exchan
     }
 
     // 11. Save the final AI response to the database
-    await supabase.from('store_messages').insert({ conversation_id: visitorMessage.conversation_id, sender_type: 'ai_bot', content: message.content });
+    const { data: latestConversation, error: latestConversationError } = await supabase
+      .from('store_conversations')
+      .select('status')
+      .eq('id', visitorMessage.conversation_id)
+      .single();
+    if (latestConversationError) return new Response('Conversation state unavailable', { status: 503 });
+    if (latestConversation.status === 'agent_requested') {
+      return new Response('Conversation was assigned to a human agent', { status: 200 });
+    }
+
+    const { error: replyError } = await supabase.from('store_messages').insert({ conversation_id: visitorMessage.conversation_id, sender_type: 'ai_bot', content: message.content, message_type: replyMessageType, metadata: replyMetadata });
+    if (replyError) return new Response('Failed to save AI reply', { status: 503 });
     await supabase.from('store_conversations').update({ updated_at: new Date().toISOString() }).eq('id', visitorMessage.conversation_id);
+    if (visitorMessage.id) {
+      await markEventCompleted(supabase, visitorMessage.id);
+    }
 
     return new Response("AI Reply completed successfully", { status: 200 });
   } catch (err) { return new Response(String(err), { status: 500 }); }
 });
+
+interface StoreMessageRecord {
+  id?: string;
+  conversation_id: string;
+  sender_type: string;
+  content: string;
+}
+
+async function isValidSignature(body: string, signature: string, secret: string): Promise<boolean> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const digest = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+  const expected = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+  const provided = signature.startsWith('sha256=') ? signature.slice(7) : signature;
+  return provided.length === expected.length && [...provided].every((character, index) => character === expected[index]);
+}
+
+async function markEventCompleted(supabase: ReturnType<typeof createClient>, messageId?: string): Promise<void> {
+  if (!messageId) return;
+  await supabase.from('store_ai_bot_events').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('message_id', messageId);
+}

@@ -1,0 +1,1 @@
+import{a as i,c as l}from"./effect-target-DSx8-Vph.js";function d(s,r,a){const o=`swiper-slide-shadow${a?`-${a}`:""}${s?` swiper-slide-shadow-${s}`:""}`,t=i(r);let e=t.querySelector(`.${o.split(" ").join(".")}`);return e||(e=l("div",o.split(" ")),t.append(e)),e}export{d as c};

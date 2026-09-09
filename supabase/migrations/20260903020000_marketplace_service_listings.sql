@@ -71,7 +71,8 @@ on conflict (actor_id, service_id) do nothing;
 create index if not exists actor_services_public_idx
   on public.actor_services (service_id, status, enabled);
 
- drop policy if exists "Enabled actor services are publicly readable" on public.actor_services;
+drop policy if exists "Enabled actor services are publicly readable" on public.actor_services;
+drop policy if exists "Approved actor services are publicly readable" on public.actor_services;
 create policy "Approved actor services are publicly readable"
   on public.actor_services for select
   using ((enabled and status = 'approved') or exists (

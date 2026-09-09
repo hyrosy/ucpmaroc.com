@@ -1,17 +1,29 @@
 import React, { useEffect, useState } from "react";
-import { Outlet, useParams, useNavigate, NavLink } from "react-router-dom";
+import { Outlet, useParams, useNavigate, NavLink, useLocation } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
-import { Loader2, Package, User, LogOut, ShoppingBag, Store, ChevronRight, MessageSquare } from "lucide-react";
+import { Loader2, Package, User, LogOut, Store, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+interface CustomerPortfolio {
+  id: string;
+  site_name: string | null;
+  public_slug: string;
+}
+
+interface CustomerProfile {
+  name?: string | null;
+  email?: string | null;
+}
 
 export default function CustomerDashboardLayout() {
   const { slug } = useParams<{ slug?: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [loading, setLoading] = useState(true);
-  const [portfolio, setPortfolio] = useState<any>(null);
-  const [customer, setCustomer] = useState<any>(null);
+  const [portfolio, setPortfolio] = useState<CustomerPortfolio | null>(null);
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
 
   useEffect(() => {
     const initializeDashboard = async () => {
@@ -89,9 +101,9 @@ export default function CustomerDashboardLayout() {
   ];
 
   return (
-    <div className="min-h-screen bg-muted/10 flex flex-col md:flex-row pt-20 lg:pt-24">
+    <div className="min-h-[100dvh] bg-muted/10 flex min-h-0 flex-col md:flex-row pt-[var(--public-nav-height)]">
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden md:flex flex-col w-[260px] bg-background border-r border-border h-[calc(100vh-5rem)] lg:h-[calc(100vh-6rem)] sticky top-20 lg:top-24 z-40 overflow-y-auto custom-scrollbar">
+      <aside className="hidden md:flex min-h-0 flex-col w-[260px] bg-background border-r border-border h-[calc(100dvh-var(--public-nav-height))] sticky top-[var(--public-nav-height)] z-40 overflow-y-auto custom-scrollbar">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate(`/pro/${slug}`)}>
             <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -138,7 +150,7 @@ export default function CustomerDashboardLayout() {
       </aside>
 
       {/* --- MOBILE HEADER & NAV --- */}
-      <div className="md:hidden bg-background border-b border-border sticky top-20 z-40 shadow-sm">
+      <div className="md:hidden bg-background border-b border-border sticky top-[var(--public-nav-height)] z-40 shadow-sm">
         <div className="flex items-center justify-between p-4">
           <div className="flex items-center gap-2 font-black text-lg" onClick={() => navigate(`/pro/${slug}`)}>
             <Store size={20} className="text-primary" /> {portfolio.site_name}
@@ -147,7 +159,7 @@ export default function CustomerDashboardLayout() {
             <LogOut size={18} />
           </Button>
         </div>
-        <div className="flex overflow-x-auto no-scrollbar px-4 pb-0 border-t border-border/50">
+        <div role="tablist" aria-label="Customer account navigation" className="flex overflow-x-auto overscroll-x-contain no-scrollbar px-2 pb-0 border-t border-border/50">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.name}
@@ -155,12 +167,13 @@ export default function CustomerDashboardLayout() {
               end={item.end}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors",
+                  "flex min-h-11 items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
                   isActive
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )
               }
+              aria-current={location.pathname === item.to || (item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)) ? 'page' : undefined}
             >
               <item.icon size={16} />
               {item.name}
@@ -170,7 +183,7 @@ export default function CustomerDashboardLayout() {
       </div>
 
       {/* --- MAIN DASHBOARD CONTENT --- */}
-      <main className="flex-1 p-4 md:p-8 max-w-5xl">
+      <main className="min-w-0 flex-1 p-4 md:p-8 max-w-5xl">
         <Outlet context={{ customer, portfolio }} />
       </main>
     </div>

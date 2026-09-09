@@ -3,21 +3,24 @@ import { useOutletContext, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Package, ArrowRight, ShoppingBag } from "lucide-react";
+import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
+
+interface CustomerDashboardContext {
+  customer?: { name?: string | null } | null;
+  portfolio?: { site_name?: string | null; public_slug?: string | null } | null;
+}
 
 export default function CustomerDashboardOverview() {
-  const { customer, portfolio } = useOutletContext<any>();
+  const { customer, portfolio } = useOutletContext<CustomerDashboardContext>();
   const navigate = useNavigate();
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h1 className="text-3xl font-black text-foreground tracking-tight">
-          Welcome back, {customer?.name?.split(" ")[0] || "there"}!
-        </h1>
-        <p className="text-muted-foreground mt-1 font-medium">
-          Manage your orders and track shipments for {portfolio?.site_name}.
-        </p>
-      </div>
+      <DashboardPageHeader
+        eyebrow={portfolio?.site_name || "Customer workspace"}
+        title={`Welcome back, ${customer?.name?.split(" ")[0] || "there"}`}
+        description="Manage your orders and track shipments from one place."
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card className="bg-primary/5 border-primary/20 shadow-none hover:bg-primary/10 transition-colors cursor-pointer" onClick={() => navigate(`../orders`)}>
