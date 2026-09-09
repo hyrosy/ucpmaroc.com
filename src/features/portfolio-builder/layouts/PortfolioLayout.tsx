@@ -360,6 +360,8 @@ export default function PortfolioLayout({
             sendButtonColor={themeConfig?.store_chat_send_button_color}
             sendButtonLabel={themeConfig?.store_chat_send_button_label}
             inputPlaceholder={themeConfig?.store_chat_input_placeholder}
+            voiceMessagesEnabled={themeConfig?.store_chat_voice_messages_enabled}
+            liveVoiceEnabled={themeConfig?.store_chat_live_voice_enabled}
             launcherPosition={themeConfig?.store_chat_launcher_position}
             launcherStyle={themeConfig?.store_chat_launcher_style}
             suggestedQuestions={themeConfig?.store_chat_suggested_questions}

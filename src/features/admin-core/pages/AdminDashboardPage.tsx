@@ -4,7 +4,8 @@ import { supabase } from '@/supabaseClient';
 import { CheckCircle, Clock, ListOrdered, Hourglass, Banknote, ArrowUpDown, Filter, X as XIcon, Globe, Search, Users, AlertTriangle } from 'lucide-react'; // <-- Add Search here
 import emailjs from '@emailjs/browser';
 import { Link } from 'react-router-dom';
-import PlatformLoader from '@/components/PlatformLoader';
+import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader';
+import DashboardState from '@/components/dashboard/DashboardState';
 // --- shadcn/ui Imports ---
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -270,13 +271,13 @@ const AdminDashboardPage = () => {
     // --- End row click handler ---
 
     if (loading) {
-      return <PlatformLoader message="Loading Admin Panel..." />;
+      return <DashboardState variant="loading" title="Loading admin orders" description="Preparing the operations workspace." className="mx-4 my-8" />;
     }
 
     return (
         <div className="min-h-screen bg-background p-4 md:p-8 text-foreground">
             <div className="max-w-7xl mx-auto">
-                <h1 className="text-3xl font-bold mb-6">Admin Dashboard: All Orders</h1>
+                <DashboardPageHeader title="All orders" description="Review payments, fulfillment, and operational status across stores." className="mb-6" />
 
                 {/* --- 1. RESTYLED SUMMARY CARDS --- */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">

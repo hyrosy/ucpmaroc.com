@@ -56,6 +56,8 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SiteFilter from "@/components/dashboard/SiteFilter";
+import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
+import DashboardState from "@/components/dashboard/DashboardState";
 import { cn } from "@/lib/utils";
 
 // --- UNIVERSAL STATUS MAP ---
@@ -436,26 +438,16 @@ const OrdersPage = () => {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-[80vh] items-center justify-center">
-        <Loader2 className="animate-spin text-primary w-8 h-8" />
-      </div>
-    );
+    return <DashboardState variant="loading" title="Loading orders" description="Preparing your fulfillment workspace." className="mx-4 my-8 md:mx-auto md:max-w-7xl" />;
   }
 
   return (
     <div className="p-4 md:p-8 space-y-6 w-full max-w-7xl mx-auto bg-muted/20 min-h-screen rounded-3xl">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-foreground tracking-tight">
-            Direct Orders
-          </h1>
-          <p className="text-muted-foreground mt-2 font-medium">
-            Manage and fulfill your shop sales.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
+      <DashboardPageHeader
+        title="Direct orders"
+        description="Manage and fulfill your shop sales."
+        actions={<div className="flex items-center gap-3 flex-wrap">
           <SiteFilter
             sites={sites}
             selectedSiteId={selectedSiteId}
@@ -475,8 +467,8 @@ const OrdersPage = () => {
           >
             Refresh
           </Button>
-        </div>
-      </div>
+        </div>}
+      />
 
       {/* 🚀 METRICS DASHBOARD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -651,19 +643,37 @@ const OrdersPage = () => {
       <Card className="rounded-2xl border-border shadow-sm bg-background overflow-hidden">
         <CardContent className="p-0">
           {filteredOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 text-muted-foreground bg-muted/20">
-              <div className="bg-background p-6 rounded-full mb-4 shadow-sm border border-border">
-                <Search className="w-10 h-10 text-muted-foreground/30" />
-              </div>
-              <p className="font-semibold text-lg text-foreground">
-                No orders found.
-              </p>
-              <p className="text-sm mt-1 opacity-70">
-                Try adjusting your filters or search query.
-              </p>
-            </div>
+            <DashboardState variant="empty" title="No orders found" description="Try adjusting your filters or search query." className="rounded-none border-0 bg-muted/20" />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="divide-y divide-border md:hidden">
+              {filteredOrders.map((order) => {
+                const StatusIcon = STATUS_MAP[order.status]?.icon || Clock;
+                const isSelected = selectedOrderIds.has(order.id);
+                return (
+                  <article key={order.id} className={cn("space-y-3 p-4 transition-colors active:bg-muted/40", isSelected && "bg-primary/5")} onClick={() => handleRowClick(order)}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Checkbox checked={isSelected} onClick={(event) => event.stopPropagation()} onCheckedChange={() => toggleOrderSelection(order.id)} aria-label={`Select order ${formatOrderId(order.id)}`} />
+                        <div className="min-w-0">
+                          <p className="font-mono text-sm font-bold text-foreground">{formatOrderId(order.id)}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={cn("shrink-0 text-[11px]", STATUS_MAP[order.status]?.color)}><StatusIcon className="mr-1 h-3 w-3" />{STATUS_MAP[order.status]?.label}</Badge>
+                    </div>
+                    <div className="flex items-end justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-foreground">{order.customer_name || "Guest Checkout"}</p>
+                        <p className="truncate text-sm text-muted-foreground">{order.product_name}</p>
+                      </div>
+                      <p className="shrink-0 font-mono font-bold text-foreground">{order.amount_cents ? `$${(order.amount_cents / 100).toFixed(2)}` : order.product_price}</p>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader className="bg-muted/30 border-b border-border">
                   <TableRow className="hover:bg-transparent border-none">
@@ -804,6 +814,7 @@ const OrdersPage = () => {
                 </TableBody>
               </Table>
             </div>
+            </>
           )}
         </CardContent>
       </Card>

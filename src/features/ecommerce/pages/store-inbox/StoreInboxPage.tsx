@@ -148,10 +148,10 @@ export default function StoreInboxPage() {
     };
 
     return (
-        <div className="flex h-[calc(100vh-100px)] overflow-hidden rounded-xl border bg-background shadow-sm">
+        <div className="flex min-h-[calc(100dvh-8rem)] w-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm backdrop-blur-sm md:h-[calc(100dvh-8rem)] md:flex-row">
             {/* Left Sidebar */}
-            <div className="w-[300px] border-r bg-muted/10 flex flex-col shrink-0 lg:w-[350px]">
-                <div className="p-4 border-b bg-background">
+            <div className="flex h-[38%] w-full shrink-0 flex-col border-b bg-muted/20 md:h-auto md:w-[300px] md:border-b-0 md:border-r lg:w-[350px]">
+                <div className="border-b border-border/60 bg-background/70 p-4">
                     <h2 className="font-semibold text-lg flex items-center gap-2">
                         <MessageCircle className="h-5 w-5 text-primary" /> Store Inbox
                     </h2>
@@ -182,10 +182,10 @@ export default function StoreInboxPage() {
             </div>
 
             {/* Right Chat Area */}
-            <div className="flex-1 flex flex-col bg-background min-w-0">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
                 {activeId ? (
                     <>
-                        <div className="border-b p-4 flex items-center justify-between bg-background shadow-sm z-10 shrink-0">
+                        <div className="z-10 flex shrink-0 items-center justify-between border-b border-border/60 bg-background/70 p-4 shadow-sm backdrop-blur-sm">
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9"><AvatarFallback className="bg-primary/10 text-primary">V</AvatarFallback></Avatar>
                                 <div>
@@ -194,7 +194,7 @@ export default function StoreInboxPage() {
                                 </div>
                             </div>
                         </div>
-                        <ScrollArea className="flex-1 p-4 sm:p-6 bg-slate-50/50 dark:bg-slate-900/20">
+                        <ScrollArea className="min-h-0 flex-1 bg-muted/20 p-4 sm:p-6">
                             <div className="space-y-4">
                                 {messages.map((msg, i) => {
                                     const isOwner = msg.sender_type === 'owner';
@@ -213,7 +213,7 @@ export default function StoreInboxPage() {
                                 <div ref={scrollRef} />
                             </div>
                         </ScrollArea>
-                        <div className="p-4 border-t bg-background shrink-0">
+                        <div className="shrink-0 border-t border-border/60 bg-background/70 p-4 backdrop-blur-sm">
                             <form onSubmit={handleSend} className="flex gap-2">
                                 <Input placeholder="Type your reply..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1" />
                                 <Button type="submit" disabled={!newMessage.trim()}><Send className="h-4 w-4 mr-2" /> Send</Button>
@@ -221,7 +221,7 @@ export default function StoreInboxPage() {
                         </div>
                     </>
                 ) : (
-                    <div className="flex h-full flex-col items-center justify-center text-muted-foreground space-y-4">
+                    <div className="flex h-full min-h-64 flex-col items-center justify-center space-y-4 bg-muted/20 text-muted-foreground">
                         <MessageCircle className="h-12 w-12 opacity-20" /><p>Select a conversation to start chatting</p>
                     </div>
                 )}

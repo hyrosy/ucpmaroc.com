@@ -790,7 +790,7 @@ const ActorDashboardLayout = () => {
             className={cn(
               "flex-1 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
               isCollapsed ? "md:ml-[72px]" : "md:ml-[260px]",
-              isMessagesPage ? "pb-[88px] md:pb-0" : "pb-[96px] md:pb-8"
+              isMessagesPage ? "app-bottom-safe md:pb-0" : "app-bottom-safe md:pb-8"
             )}
           >
         <Outlet context={{ actorData, role: "actor", selectedSiteId, setSelectedSiteId }} />
@@ -800,9 +800,9 @@ const ActorDashboardLayout = () => {
         <FloatingCommunicationDock actorData={actorData} />
 
         {/* --- MOBILE BOTTOM NAV --- */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50">
+        <nav aria-label="Primary workspace navigation" className="md:hidden fixed bottom-0 left-0 right-0 z-50 pb-safe">
           <div className="absolute bottom-0 w-full h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-          <div className="bg-background/80 backdrop-blur-xl border-t border-border/60 pb-safe pt-1">
+          <div className="bg-background/80 backdrop-blur-xl border-t border-border/60 pt-1">
             <div className="flex justify-around items-center h-16 px-1">
               {mobilePrimaryItems.map((item) => (
                 <NavLink
@@ -810,7 +810,7 @@ const ActorDashboardLayout = () => {
                   to={item.to}
                   className={({ isActive }) =>
                     cn(
-                      "group flex flex-col items-center justify-center w-full h-full space-y-1 relative active:scale-90 transition-transform duration-200",
+                      "group flex min-h-11 flex-col items-center justify-center w-full h-full space-y-1 relative active:scale-95 transition-transform duration-200 focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset",
                       isActive ? "text-primary" : "text-muted-foreground"
                     )
                   }
@@ -841,7 +841,7 @@ const ActorDashboardLayout = () => {
 
               <Sheet>
                 <SheetTrigger asChild>
-                  <button className="flex flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground active:scale-90 transition-transform">
+                  <button type="button" aria-label="Open workspace menu" className="flex min-h-11 flex-col items-center justify-center w-full h-full space-y-1 text-muted-foreground active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset">
                     <div className="p-1.5 rounded-xl hover:bg-muted">
                       <Menu className="h-5 w-5" />
                     </div>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/supabaseClient';
-import { Bot, MessageCircle, Save, Phone, Sparkles, ChevronLeft, Eye, Plus, X, ChevronRight } from 'lucide-react';
+import { Bot, MessageCircle, Save, Phone, Sparkles, ChevronLeft, Eye, Plus, X, ChevronRight, Mic, Crown, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useSearchParams, useOutletContext } from 'react-router-dom';
 import StorefrontChatWidget from '@/features/ecommerce/components/store-chat/StorefrontChatWidget';
@@ -25,6 +26,7 @@ export default function StoreBotSettingsPage() {
     const [activePortfolioId, setActivePortfolioId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [microphoneStatus, setMicrophoneStatus] = useState<'idle' | 'checking' | 'ready' | 'blocked'>('idle');
     const savedConfigRef = useRef('');
 
     const [config, setConfig] = useState({
@@ -50,6 +52,9 @@ export default function StoreBotSettingsPage() {
         store_chat_launcher_style: 'message',
         store_chat_marketing_optin: false,
         store_chat_marketing_coupon: '',
+        store_chat_voice_messages_enabled: false,
+        store_chat_live_voice_enabled: false,
+        store_chat_voice_name: 'alloy',
         store_chat_icon_type: 'message',
         store_chat_custom_icon_url: '',
         store_chat_suggested_questions: [] as { question: string, answer: string }[]
@@ -112,6 +117,9 @@ export default function StoreBotSettingsPage() {
             store_chat_launcher_style: getString('store_chat_launcher_style', 'message'),
             store_chat_marketing_optin: getBoolean('store_chat_marketing_optin', false),
             store_chat_marketing_coupon: getString('store_chat_marketing_coupon', ''),
+            store_chat_voice_messages_enabled: getBoolean('store_chat_voice_messages_enabled', false),
+            store_chat_live_voice_enabled: getBoolean('store_chat_live_voice_enabled', false),
+            store_chat_voice_name: getString('store_chat_voice_name', 'alloy'),
             store_chat_icon_type: getString('store_chat_icon_type', 'message'),
             store_chat_custom_icon_url: getString('store_chat_custom_icon_url', ''),
             store_chat_suggested_questions: suggestedQuestions.map((q): SuggestedQuestion => typeof q === 'string' ? { question: q, answer: '' } : q as SuggestedQuestion)
@@ -153,6 +161,21 @@ export default function StoreBotSettingsPage() {
         setSearchParams({ portfolioId });
         setActivePortfolioId(portfolioId);
         loadConfig(themeConfig);
+    };
+
+    const testMicrophone = async () => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setMicrophoneStatus('blocked');
+            return;
+        }
+        setMicrophoneStatus('checking');
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(track => track.stop());
+            setMicrophoneStatus('ready');
+        } catch {
+            setMicrophoneStatus('blocked');
+        }
     };
 
     if (loading) return <div className="p-8 text-muted-foreground">Loading settings...</div>;
@@ -233,15 +256,17 @@ export default function StoreBotSettingsPage() {
                 </div>
             </div>
 
-            <nav aria-label="Chat settings sections" className="sticky top-0 z-20 flex gap-1 overflow-x-auto rounded-xl border bg-background/95 p-1 shadow-sm backdrop-blur">
-                <a href="#chat-experience" className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Experience</a>
-                <a href="#chat-knowledge" className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Knowledge & AI</a>
-                <a href="#chat-conversion" className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Conversion</a>
-            </nav>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
             <div className="lg:col-span-2 space-y-6">
-            <div id="chat-experience" className="rounded-xl border bg-card p-6 shadow-sm space-y-8 scroll-mt-20">
+            <Tabs defaultValue="configuration" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="configuration">Configuration</TabsTrigger>
+                    <TabsTrigger value="customization">Customization</TabsTrigger>
+                    <TabsTrigger value="botplus" className="gap-1.5"><Crown className="h-3.5 w-3.5" /> Bot+</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="configuration" className="mt-4">
+            <div className="rounded-xl border bg-card p-6 shadow-sm space-y-8">
                 <div className="flex items-center justify-between border-b pb-6">
                     <div>
                         <h3 className="font-semibold flex items-center gap-2"><MessageCircle className="h-4 w-4 text-primary" /> Enable Storefront Chat</h3>
@@ -267,7 +292,66 @@ export default function StoreBotSettingsPage() {
                             </label>
                         </div>
                     </div>
-                    
+
+                    {config.store_chat_mode === 'whatsapp' && (
+                        <div className="space-y-2">
+                            <Label>WhatsApp Number (Include Country Code)</Label>
+                            <Input placeholder="e.g. +212600000000" value={config.store_chat_whatsapp_number} onChange={e => setConfig({...config, store_chat_whatsapp_number: e.target.value})} />
+                        </div>
+                    )}
+
+                    {config.store_chat_mode === 'internal' && (
+                        <div className="flex flex-col gap-4 rounded-xl bg-indigo-500/5 p-5 border border-indigo-500/20 text-indigo-950 dark:text-indigo-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h4 className="font-semibold flex items-center gap-2"><Bot className="h-4 w-4" /> Enable AI Auto-Reply</h4>
+                                    <p className="text-sm opacity-80 mt-1">The bot will automatically answer customer questions.</p>
+                                </div>
+                                <label className="relative inline-flex cursor-pointer items-center">
+                                    <input type="checkbox" className="sr-only peer" checked={config.store_chat_ai_assistant} onChange={e => setConfig({...config, store_chat_ai_assistant: e.target.checked})} />
+                                    <div className="w-11 h-6 bg-indigo-900/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                </label>
+                            </div>
+                            <div className={`space-y-3 transition-opacity ${!config.store_chat_ai_assistant ? 'opacity-50 pointer-events-none hidden' : 'opacity-100 block'}`}>
+                                <Label className="text-indigo-900 dark:text-indigo-200">AI System Prompt (Bot Personality & Knowledge)</Label>
+                                <textarea
+                                    className="flex min-h-[100px] w-full rounded-md border border-indigo-500/30 bg-background/50 px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                                    placeholder="Describe the assistant's personality, tone, language, and rules..."
+                                    value={config.store_chat_ai_prompt || ''}
+                                    onChange={e => setConfig({...config, store_chat_ai_prompt: e.target.value})}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-indigo-900 dark:text-indigo-200">Training Notes</Label>
+                                <textarea className="flex min-h-[140px] w-full rounded-md border border-indigo-500/30 bg-background/50 px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" placeholder="Add plain-text knowledge: shipping rules, services, returns, brand facts, escalation rules..." value={config.store_chat_training_text} onChange={e => setConfig({...config, store_chat_training_text: e.target.value})} />
+                                <p className="text-xs opacity-70">The assistant uses this text as private store knowledge. Do not paste passwords or payment secrets.</p>
+                            </div>
+                            <div className={`space-y-4 pt-4 border-t border-indigo-500/20 transition-opacity ${!config.store_chat_ai_assistant ? 'hidden' : 'block'}`}>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h5 className="font-semibold text-sm">Lead Generation (Discounts)</h5>
+                                        <p className="text-xs opacity-80 mt-1">AI will ask for email before giving discount codes.</p>
+                                    </div>
+                                    <label className="relative inline-flex cursor-pointer items-center">
+                                        <input type="checkbox" className="sr-only peer" checked={config.store_chat_marketing_optin} onChange={e => setConfig({...config, store_chat_marketing_optin: e.target.checked})} />
+                                        <div className="w-11 h-6 bg-indigo-900/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                                    </label>
+                                </div>
+                                {config.store_chat_marketing_optin && (
+                                    <div className="space-y-2">
+                                        <Label className="text-indigo-900 dark:text-indigo-200">Default Coupon Code</Label>
+                                        <Input value={config.store_chat_marketing_coupon || ''} onChange={e => setConfig({...config, store_chat_marketing_coupon: e.target.value})} placeholder="Optional: your active coupon code" className="bg-background/50 border-indigo-500/30 text-indigo-950 dark:text-indigo-100 placeholder:text-indigo-900/40" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+                </TabsContent>
+
+                <TabsContent value="customization" className="mt-4">
+            <div className="rounded-xl border bg-card p-6 shadow-sm space-y-8">
                     <div className="space-y-3">
                         <Label>Chat Bubble Icon</Label>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -302,13 +386,6 @@ export default function StoreBotSettingsPage() {
                             </div>
                         )}
                     </div>
-
-                    {config.store_chat_mode === 'whatsapp' && (
-                        <div className="space-y-2">
-                            <Label>WhatsApp Number (Include Country Code)</Label>
-                            <Input placeholder="e.g. +212600000000" value={config.store_chat_whatsapp_number} onChange={e => setConfig({...config, store_chat_whatsapp_number: e.target.value})} />
-                        </div>
-                    )}
 
                     <div className="space-y-2">
                         <Label>Welcome Message</Label>
@@ -391,55 +468,85 @@ export default function StoreBotSettingsPage() {
                              )}
                          </div>
                     </div>
+            </div>
+                </TabsContent>
 
-                    {config.store_chat_mode === 'internal' && (
-                        <div className="flex flex-col gap-4 rounded-xl bg-indigo-500/5 p-5 border border-indigo-500/20 text-indigo-950 dark:text-indigo-100">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h4 className="font-semibold flex items-center gap-2"><Bot className="h-4 w-4" /> Enable AI Auto-Reply</h4>
-                                    <p className="text-sm opacity-80 mt-1">The bot will automatically answer customer questions.</p>
-                                </div>
-                                <label className="relative inline-flex cursor-pointer items-center">
-                                    <input type="checkbox" className="sr-only peer" checked={config.store_chat_ai_assistant} onChange={e => setConfig({...config, store_chat_ai_assistant: e.target.checked})} />
-                                    <div className="w-11 h-6 bg-indigo-900/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                </label>
-                            </div>
-                            <div className={`space-y-3 transition-opacity ${!config.store_chat_ai_assistant ? 'opacity-50 pointer-events-none hidden' : 'opacity-100 block'}`}>
-                                <Label className="text-indigo-900 dark:text-indigo-200">AI System Prompt (Bot Personality & Knowledge)</Label>
-                                <textarea 
-                                    className="flex min-h-[100px] w-full rounded-md border border-indigo-500/30 bg-background/50 px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                                    placeholder="Describe the assistant's personality, tone, language, and rules..."
-                                    value={config.store_chat_ai_prompt || ''} 
-                                    onChange={e => setConfig({...config, store_chat_ai_prompt: e.target.value})} 
-                                />
-                            </div>
-                            <div id="chat-knowledge" className="space-y-2 scroll-mt-20">
-                                <Label className="text-indigo-900 dark:text-indigo-200">Training Notes</Label>
-                                <textarea className="flex min-h-[140px] w-full rounded-md border border-indigo-500/30 bg-background/50 px-3 py-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" placeholder="Add plain-text knowledge: shipping rules, services, returns, brand facts, escalation rules..." value={config.store_chat_training_text} onChange={e => setConfig({...config, store_chat_training_text: e.target.value})} />
-                                <p className="text-xs opacity-70">The assistant uses this text as private store knowledge. Do not paste passwords or payment secrets.</p>
-                            </div>
-                            <div id="chat-conversion" className={`space-y-4 pt-4 border-t border-indigo-500/20 transition-opacity scroll-mt-20 ${!config.store_chat_ai_assistant ? 'hidden' : 'block'}`}>
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h5 className="font-semibold text-sm">Lead Generation (Discounts)</h5>
-                                        <p className="text-xs opacity-80 mt-1">AI will ask for email before giving discount codes.</p>
-                                    </div>
-                                    <label className="relative inline-flex cursor-pointer items-center">
-                                        <input type="checkbox" className="sr-only peer" checked={config.store_chat_marketing_optin} onChange={e => setConfig({...config, store_chat_marketing_optin: e.target.checked})} />
-                                        <div className="w-11 h-6 bg-indigo-900/20 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
-                                    </label>
-                                </div>
-                                {config.store_chat_marketing_optin && (
-                                    <div className="space-y-2">
-                                        <Label className="text-indigo-900 dark:text-indigo-200">Default Coupon Code</Label>
-                                        <Input value={config.store_chat_marketing_coupon || ''} onChange={e => setConfig({...config, store_chat_marketing_coupon: e.target.value})} placeholder="Optional: your active coupon code" className="bg-background/50 border-indigo-500/30 text-indigo-950 dark:text-indigo-100 placeholder:text-indigo-900/40" />
-                                    </div>
-                                )}
-                            </div>
+                <TabsContent value="botplus" className="mt-4">
+            <div className="rounded-xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-card to-card p-6 shadow-sm space-y-6">
+                <div className="flex items-center gap-3 border-b border-amber-500/20 pb-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/15 text-amber-500"><Crown className="h-5 w-5" /></div>
+                    <div>
+                        <h3 className="font-semibold flex items-center gap-2">Bot+ Voice <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400">Premium</span></h3>
+                        <p className="text-sm text-muted-foreground mt-1">Let visitors talk to your assistant with real speech, powered by OpenAI.</p>
+                    </div>
+                </div>
+
+                {!config.store_chat_ai_assistant && (
+                    <p className="rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">Enable AI Auto-Reply in the Configuration tab to unlock voice features.</p>
+                )}
+
+                {config.store_chat_ai_assistant && (
+                    <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl border bg-background/60 p-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Transcription</p><p className="mt-1 text-sm font-medium">OpenAI speech-to-text</p></div>
+                        <div className="rounded-xl border bg-background/60 p-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Live audio</p><p className="mt-1 text-sm font-medium">WebRTC Realtime</p></div>
+                        <div className="rounded-xl border bg-background/60 p-3"><p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Privacy</p><p className="mt-1 text-sm font-medium">Short-lived sessions</p></div>
+                    </div>
+                )}
+
+                <div className={`space-y-6 transition-opacity ${!config.store_chat_ai_assistant ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                    <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="flex min-h-40 flex-col justify-between rounded-xl border bg-background/60 p-5">
+                        <div>
+                            <div className="mb-3 flex items-center justify-between"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600"><Mic className="h-4 w-4" /></div><span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Async</span></div>
+                            <h4 className="font-semibold">Voice messages</h4>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">Visitors record a note. OpenAI transcribes it and the assistant replies in the existing conversation.</p>
+                        </div>
+                        <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+                            <input type="checkbox" className="sr-only peer" checked={config.store_chat_voice_messages_enabled} onChange={e => setConfig({...config, store_chat_voice_messages_enabled: e.target.checked})} />
+                            <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+
+                    <div className="flex min-h-40 flex-col justify-between rounded-xl border bg-background/60 p-5">
+                        <div>
+                            <div className="mb-3 flex items-center justify-between"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600"><Phone className="h-4 w-4" /></div><span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Realtime</span></div>
+                            <h4 className="font-semibold">Live voice conversation</h4>
+                            <p className="mt-1 text-sm leading-6 text-muted-foreground">Visitors speak naturally with the assistant over WebRTC and see a running transcript.</p>
+                        </div>
+                        <label className="relative inline-flex shrink-0 cursor-pointer items-center">
+                            <input type="checkbox" className="sr-only peer" checked={config.store_chat_live_voice_enabled} onChange={e => setConfig({...config, store_chat_live_voice_enabled: e.target.checked})} />
+                            <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-500/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                    </div>
+                    </div>
+
+                    {(config.store_chat_voice_messages_enabled || config.store_chat_live_voice_enabled) && (
+                        <div className="grid gap-4 rounded-xl border bg-muted/20 p-5 md:grid-cols-[1fr_auto] md:items-end">
+                        <div className="space-y-2">
+                            <Label>Assistant voice</Label>
+                            <select aria-label="Assistant voice" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={config.store_chat_voice_name} onChange={e => setConfig({...config, store_chat_voice_name: e.target.value})}>
+                                <option value="alloy">Alloy</option>
+                                <option value="verse">Verse</option>
+                                <option value="ember">Ember</option>
+                                <option value="coral">Coral</option>
+                            </select>
+                            <p className="text-xs text-muted-foreground">Used for live spoken responses. Voice choice can be changed without retraining the bot.</p>
+                        </div>
+                        <Button type="button" variant="outline" onClick={testMicrophone} disabled={microphoneStatus === 'checking'} className="gap-2">
+                            {microphoneStatus === 'checking' ? <Mic className="h-4 w-4 animate-pulse" /> : microphoneStatus === 'ready' ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Mic className="h-4 w-4" />}
+                            {microphoneStatus === 'checking' ? 'Checking microphone…' : microphoneStatus === 'ready' ? 'Microphone ready' : 'Test microphone'}
+                        </Button>
                         </div>
                     )}
+
+                    <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-xs text-muted-foreground">
+                        {microphoneStatus === 'blocked' ? <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" /> : <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />}
+                        <p>{microphoneStatus === 'blocked' ? 'Microphone access was blocked in this browser. Check site permissions before enabling live voice.' : 'Visitors must grant microphone access from a secure HTTPS page. Voice usage is billed through your OpenAI account; the browser receives only short-lived session credentials.'}</p>
+                    </div>
                 </div>
             </div>
+                </TabsContent>
+            </Tabs>
 
             <div className="sticky bottom-4 z-20 flex items-center justify-between gap-4 rounded-xl border bg-background/95 p-3 shadow-lg backdrop-blur">
                 <span className="text-xs text-muted-foreground">{isDirty ? 'Unsaved changes' : 'All changes saved'}</span>
@@ -473,6 +580,8 @@ export default function StoreBotSettingsPage() {
                           inputPlaceholder={config.store_chat_input_placeholder}
                           launcherPosition={config.store_chat_launcher_position as 'left' | 'right'}
                           launcherStyle={config.store_chat_launcher_style as 'message' | 'bot' | 'sparkles' | 'custom' | 'peek'}
+                          voiceMessagesEnabled={config.store_chat_voice_messages_enabled}
+                          liveVoiceEnabled={config.store_chat_live_voice_enabled}
                           suggestedQuestions={config.store_chat_suggested_questions}
                           isInline={true}
                        />

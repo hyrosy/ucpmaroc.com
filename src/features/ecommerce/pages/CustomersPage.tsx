@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { useOutletContext } from "react-router-dom";
 import { ActorDashboardContextType } from "@/layouts/ActorDashboardLayout";
-import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, Users, Mail, Phone, Calendar, ArrowUpRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Mail, Phone, Calendar, ArrowUpRight } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -13,20 +13,52 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import SiteFilter from "@/components/dashboard/SiteFilter";
+import DashboardPageHeader from "@/components/dashboard/DashboardPageHeader";
+import DashboardState from "@/components/dashboard/DashboardState";
+
+interface Site {
+  id: string;
+  site_name: string | null;
+  public_slug?: string | null;
+}
+
+interface CustomerOrder {
+  id: string;
+  amount_cents?: number | null;
+  product_price?: string | null;
+  status?: string | null;
+}
+
+interface CustomerRecord {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  portfolio_id: string;
+  created_at: string;
+  pro_orders: CustomerOrder[];
+}
 
 export default function CustomersPage() {
   const { actorData, selectedSiteId, setSelectedSiteId } = useOutletContext<ActorDashboardContextType>();
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [sites, setSites] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<CustomerRecord[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const fetchCustomers = async () => {
       if (!actorData?.id) return;
       setLoading(true);
+      setLoadError(false);
 
       // First fetch sites to know which portfolios belong to this actor
-      const { data: mySites } = await supabase.from("portfolios").select("id, site_name, public_slug").eq("actor_id", actorData.id);
+      const { data: mySites, error: sitesError } = await supabase.from("portfolios").select("id, site_name, public_slug").eq("actor_id", actorData.id);
+      if (sitesError) {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
       if (mySites) setSites(mySites);
 
       if (!mySites || mySites.length === 0) {
@@ -36,13 +68,14 @@ export default function CustomersPage() {
 
       const siteIds = mySites.map(s => s.id);
 
-      let query = supabase
+      const query = supabase
         .from("pro_customers")
         .select("*, pro_orders(id, amount_cents, product_price, status)")
         .in("portfolio_id", siteIds)
         .order("created_at", { ascending: false });
 
-      const { data } = await query;
+      const { data, error } = await query;
+      if (error) setLoadError(true);
       if (data) setCustomers(data);
       setLoading(false);
     };
@@ -50,7 +83,7 @@ export default function CustomersPage() {
     fetchCustomers();
   }, [actorData?.id]);
 
-  const calculateLTV = (orders: any[]) => {
+  const calculateLTV = (orders: CustomerOrder[]) => {
     if (!orders || orders.length === 0) return 0;
     return orders.reduce((sum, o) => {
       if (o.status === "cancelled" || o.status === "refunded") return sum;
@@ -62,30 +95,25 @@ export default function CustomersPage() {
 
   const filteredCustomers = customers.filter(c => selectedSiteId === "all" || c.portfolio_id === selectedSiteId);
 
-  if (loading) return <div className="flex justify-center py-32"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (loading) return <DashboardState variant="loading" title="Loading customers" description="Preparing your customer workspace." className="mx-4 my-8 md:mx-auto md:max-w-7xl" />;
+  if (loadError) return <DashboardState variant="error" title="Customers could not load" description="We couldn't retrieve customer data right now." actionLabel="Try again" onAction={() => window.location.reload()} className="mx-4 my-8 md:mx-auto md:max-w-7xl" />;
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto w-full space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
-          <p className="text-muted-foreground mt-1">Manage your registered client accounts and lifetime value.</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <DashboardPageHeader
+        title="Customers"
+        description="Manage registered client accounts and lifetime value."
+        actions={<div className="flex items-center gap-3">
           <SiteFilter
             sites={sites}
             selectedSiteId={selectedSiteId}
             onChange={setSelectedSiteId}
           />
-        </div>
-      </div>
+        </div>}
+      />
 
       {filteredCustomers.length === 0 ? (
-        <div className="text-center py-24 border-2 border-dashed rounded-xl bg-muted/10">
-          <Users className="w-12 h-12 text-primary mx-auto mb-4 opacity-50" />
-          <h3 className="text-xl font-bold mb-2">No Customers Found</h3>
-          <p className="text-muted-foreground max-w-sm mx-auto">Once customers create an account to track their orders, they will appear here.</p>
-        </div>
+        <DashboardState variant="empty" title="No customers yet" description="Customers will appear here after they create an account or place an order." />
       ) : (
         <Card className="rounded-xl shadow-sm border-border overflow-hidden animate-in fade-in">
           <div className="overflow-x-auto">

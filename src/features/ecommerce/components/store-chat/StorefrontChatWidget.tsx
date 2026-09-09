@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, X, Send, Bot, Sparkles, RefreshCw } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, Sparkles, RefreshCw, Mic, Square, Phone, PhoneOff } from 'lucide-react';
 import { createVisitorSupabase, supabase } from '@/supabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +29,14 @@ interface StorefrontChatWidgetProps {
   inputPlaceholder?: string;
   launcherPosition?: 'left' | 'right';
   launcherStyle?: 'message' | 'bot' | 'sparkles' | 'custom' | 'peek';
+  voiceMessagesEnabled?: boolean;
+  liveVoiceEnabled?: boolean;
   isInline?: boolean;
+}
+
+interface LiveTranscriptLine {
+  role: 'visitor' | 'assistant';
+  text: string;
 }
 
 interface StoreMessage {
@@ -42,7 +49,7 @@ interface StoreMessage {
   metadata?: Record<string, unknown> | null;
 }
 
-const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId, storeSlug, storeName = 'Store Support', botName = 'UCP Assistant', headerTitle, headerSubtitle, aiEnabled = false, iconType = 'message', customIconUrl = '', welcomeMessage, suggestedQuestions = [], aiMessageColor = '#6366f1', visitorMessageColor = '#111827', panelBackground = '#f8fafc', panelBackgroundImage = '', panelPattern = 'none', sendButtonColor = '#111827', sendButtonLabel = 'Send message', inputPlaceholder = 'Type a message...', launcherPosition = 'right', launcherStyle, isInline = false }) => {
+const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId, storeSlug, storeName = 'Store Support', botName = 'UCP Assistant', headerTitle, headerSubtitle, aiEnabled = false, iconType = 'message', customIconUrl = '', welcomeMessage, suggestedQuestions = [], aiMessageColor = '#6366f1', visitorMessageColor = '#111827', panelBackground = '#f8fafc', panelBackgroundImage = '', panelPattern = 'none', sendButtonColor = '#111827', sendButtonLabel = 'Send message', inputPlaceholder = 'Type a message...', launcherPosition = 'right', launcherStyle, voiceMessagesEnabled = false, liveVoiceEnabled = false, isInline = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<StoreMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -57,8 +64,21 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
   const [contactFormTouched, setContactFormTouched] = useState(false);
   const [contactSubmitting, setContactSubmitting] = useState(false);
   const [contactSubmitError, setContactSubmitError] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [liveCallStatus, setLiveCallStatus] = useState<'idle' | 'connecting' | 'active'>('idle');
+  const [liveCallError, setLiveCallError] = useState('');
+  const [voiceError, setVoiceError] = useState('');
+  const [liveTranscript, setLiveTranscript] = useState<LiveTranscriptLine[]>([]);
   const addItem = useCartStore(state => state.addItem);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
+  const recordingStreamRef = useRef<MediaStream | null>(null);
+  const livePeerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const liveStreamRef = useRef<MediaStream | null>(null);
+  const liveAudioElRef = useRef<HTMLAudioElement | null>(null);
+  const liveDataChannelRef = useRef<RTCDataChannel | null>(null);
   const conversationPromiseRef = useRef<Promise<string> | null>(null);
   const conversationLookupRef = useRef<Promise<string | null> | null>(null);
   const visitorSupabaseRef = useRef(supabase);
@@ -99,6 +119,119 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
     void handleSendDirect(`Please check order ${orderNumber.trim()} for ${orderEmail.trim()}.`);
     setOrderEmail('');
     setOrderNumber('');
+  };
+
+  const startVoiceRecording = async () => {
+    if (!voiceMessagesEnabled || isRecording || isTranscribing) return;
+    setVoiceError('');
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) throw new Error('Voice recording is not supported in this browser.');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordingStreamRef.current = stream;
+      recordedChunksRef.current = [];
+      recorder.ondataavailable = event => {
+        if (event.data.size > 0) recordedChunksRef.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
+        setIsTranscribing(true);
+        try {
+          const audio = new Blob(recordedChunksRef.current, { type: recorder.mimeType || 'audio/webm' });
+          const formData = new FormData();
+          formData.append('portfolio_id', portfolioId);
+          formData.append('audio', audio, 'voice-note.webm');
+          const { data, error } = await supabase.functions.invoke('store-voice-transcribe', { body: formData });
+          if (error || !data?.text) throw error || new Error('No transcription returned');
+          await handleSendDirect(data.text);
+        } catch (error) {
+          console.error('Voice transcription failed:', error);
+          setVoiceError(error instanceof Error ? error.message : 'Voice transcription failed.');
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+    } catch (error) {
+      console.error('Microphone access failed:', error);
+      setVoiceError(error instanceof Error ? error.message : 'Microphone access was denied.');
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+  };
+
+  const stopLiveVoice = useCallback(() => {
+    liveDataChannelRef.current?.close();
+    livePeerConnectionRef.current?.close();
+    liveStreamRef.current?.getTracks().forEach(track => track.stop());
+    liveDataChannelRef.current = null;
+    livePeerConnectionRef.current = null;
+    liveStreamRef.current = null;
+    setLiveCallStatus('idle');
+  }, []);
+
+  const startLiveVoice = async () => {
+    if (!liveVoiceEnabled || liveCallStatus !== 'idle') return;
+    setLiveCallError('');
+    setVoiceError('');
+    setLiveCallStatus('connecting');
+    try {
+      const { data: session, error: sessionError } = await supabase.functions.invoke('store-realtime-session', { body: { portfolio_id: portfolioId } });
+      const ephemeralKey = session?.client_secret?.value;
+      if (sessionError || !ephemeralKey) throw sessionError || new Error('Voice session unavailable');
+
+      const peer = new RTCPeerConnection();
+      const audio = new Audio();
+      audio.autoplay = true;
+      peer.ontrack = event => {
+        audio.srcObject = event.streams[0];
+        liveAudioElRef.current = audio;
+      };
+      const microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
+      microphone.getTracks().forEach(track => peer.addTrack(track, microphone));
+      const channel = peer.createDataChannel('oai-events');
+      channel.onmessage = event => {
+        let payload: { type?: string; delta?: string; transcript?: string };
+        try {
+          payload = JSON.parse(event.data) as { type?: string; delta?: string; transcript?: string };
+        } catch {
+          return;
+        }
+        if (payload.type === 'conversation.item.input_audio_transcription.completed' && payload.transcript) {
+          setLiveTranscript(prev => [...prev, { role: 'visitor', text: payload.transcript || '' }]);
+        }
+        if (payload.type === 'response.audio_transcript.delta' && payload.delta) {
+          setLiveTranscript(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant') return [...prev.slice(0, -1), { ...last, text: last.text + payload.delta }];
+            return [...prev, { role: 'assistant', text: payload.delta || '' }];
+          });
+        }
+      };
+      const offer = await peer.createOffer();
+      await peer.setLocalDescription(offer);
+      const answer = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview', {
+        method: 'POST',
+        body: offer.sdp,
+        headers: { Authorization: `Bearer ${ephemeralKey}`, 'Content-Type': 'application/sdp' },
+      });
+      if (!answer.ok) throw new Error('Could not connect to live voice');
+      await peer.setRemoteDescription({ type: 'answer', sdp: await answer.text() });
+      livePeerConnectionRef.current = peer;
+      liveDataChannelRef.current = channel;
+      liveStreamRef.current = microphone;
+      setLiveTranscript([]);
+      setLiveCallStatus('active');
+    } catch (error) {
+      stopLiveVoice();
+      setLiveCallError(error instanceof Error ? error.message : 'Live voice could not start');
+    }
   };
 
   const addProductToCart = (product: { id: string; title: string; price?: number; images?: string[] }) => {
@@ -200,6 +333,7 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
   }, [conversationId, startAiTyping, stopAiTyping]);
 
   useEffect(() => () => stopAiTyping(), [stopAiTyping]);
+  useEffect(() => () => stopLiveVoice(), [stopLiveVoice]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -318,6 +452,17 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
           </div>
           <ScrollArea className="relative flex-1 p-4" style={{ backgroundColor: panelBackground, backgroundImage: panelBackgroundImage ? `linear-gradient(rgba(248,250,252,.78), rgba(248,250,252,.78)), url(${panelBackgroundImage})` : patternStyle?.backgroundImage, backgroundSize: panelBackgroundImage ? 'cover' : patternStyle?.backgroundSize, backgroundPosition: 'center', ...(!panelBackgroundImage ? patternStyle : {}) }}>
             <div className="space-y-4">
+                {liveCallStatus !== 'idle' && (
+                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-semibold">{liveCallStatus === 'connecting' ? 'Connecting to live voice…' : 'Live voice active'}</span>
+                      <Button type="button" size="sm" variant="outline" onClick={stopLiveVoice}><PhoneOff className="mr-1.5 h-3.5 w-3.5" /> End</Button>
+                    </div>
+                    {liveTranscript.length > 0 && <div className="mt-2 max-h-24 space-y-1 overflow-y-auto text-muted-foreground">{liveTranscript.slice(-6).map((line, index) => <p key={`${line.role}-${index}`}><strong>{line.role === 'visitor' ? 'You' : botName}:</strong> {line.text}</p>)}</div>}
+                    {liveCallError && <p role="alert" className="mt-2 text-destructive">{liveCallError}</p>}
+                  </div>
+                )}
+                {voiceError && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"><span>{voiceError}</span><button type="button" className="font-semibold underline" onClick={() => setVoiceError('')}>Dismiss</button></div>}
                 {messages.length === 0 && (
                    <div className="space-y-4">
                        <div className="flex justify-start animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -424,6 +569,8 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
             </div>
           </ScrollArea>
           <form onSubmit={handleSend} className="flex items-center gap-2 border-t bg-background p-3">
+            {voiceMessagesEnabled && <Button type="button" variant={isRecording ? 'destructive' : 'outline'} size="icon" onClick={isRecording ? stopVoiceRecording : startVoiceRecording} disabled={isTranscribing || liveCallStatus !== 'idle'} aria-label={isRecording ? 'Stop voice recording' : 'Record voice message'} title={isTranscribing ? 'Transcribing voice message' : isRecording ? 'Stop recording' : 'Record voice message'}>{isTranscribing ? <Bot className="h-4 w-4 animate-pulse" /> : isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}</Button>}
+            {liveVoiceEnabled && <Button type="button" variant={liveCallStatus === 'active' ? 'destructive' : 'outline'} size="icon" onClick={liveCallStatus === 'idle' ? startLiveVoice : stopLiveVoice} disabled={isRecording || liveCallStatus === 'connecting'} aria-label={liveCallStatus === 'active' ? 'End live voice' : 'Start live voice'} title={liveCallStatus === 'active' ? 'End live voice' : 'Start live voice'}>{liveCallStatus === 'active' ? <PhoneOff className="h-4 w-4" /> : <Phone className="h-4 w-4" />}</Button>}
             <Input aria-label={inputPlaceholder} placeholder={inputPlaceholder} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1 rounded-full bg-muted/30 focus-visible:ring-primary" />
             <Button type="submit" size="icon" className="rounded-full shrink-0 text-white" style={{ backgroundColor: sendButtonColor }} disabled={!newMessage.trim() || !visitorReady} title={sendButtonLabel} aria-label={sendButtonLabel}><Send className="h-4 w-4" /></Button>
           </form>

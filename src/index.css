@@ -28,6 +28,13 @@
     --input: 214.3 31.8% 91.4%; /* slate-200 */
     --ring: 262 52% 57%; /* purple-600 */
     --radius: 0.75rem; /* 12px / rounded-xl */
+    --app-topbar-height: 3.5rem;
+    --app-bottom-nav-height: 4rem;
+    --public-nav-height: 5rem;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
   }
 
   /* --- YOUR CUSTOM DARK THEME --- */
@@ -62,6 +69,9 @@
   }
   body {
     @apply bg-background text-foreground;
+    min-width: 320px;
+    min-height: 100dvh;
+    padding-bottom: var(--safe-bottom);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -88,19 +98,9 @@
   background-color: theme('colors.purple.500');
 }
 
-/* Custom button hover */
+/* Custom motion */
 .custom-cursor.animated {
   animation: glow 1.5s infinite ease-in-out;
-}
-button {
-  transition: all 0.3s ease-in-out;
-}
-/* Note: This global button:hover will be overridden 
-   by shadcn/ui's Button component, which is what we want. 
-   You can keep it for any non-shadcn buttons. */
-button:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* --- Google Translate Fixes --- */
@@ -149,12 +149,32 @@ html {
 }
 
 @layer utilities {
-  /* 1. Dynamic Radius Logic */
-  /* This forces all Shadcn/Tailwind components to use the variable we inject */
-  .rounded-lg, .rounded-md, .rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-full {
+  .pt-safe { padding-top: var(--safe-top); }
+  .pr-safe { padding-right: var(--safe-right); }
+  .pb-safe { padding-bottom: var(--safe-bottom); }
+  .pl-safe { padding-left: var(--safe-left); }
+  .px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
+  .app-bottom-safe { padding-bottom: calc(var(--app-bottom-nav-height) + var(--safe-bottom)); }
+  .min-h-app { min-height: 100dvh; }
+
+  /* 1. Portfolio-only radius override: keeps user-created sites obeying their
+     builder radius slider, without forcing the platform's own dashboard UI
+     to lose its fixed geometry. */
+  .portfolio-canvas-wrapper .rounded-lg,
+  .portfolio-canvas-wrapper .rounded-md,
+  .portfolio-canvas-wrapper .rounded-xl,
+  .portfolio-canvas-wrapper .rounded-2xl,
+  .portfolio-canvas-wrapper .rounded-3xl,
+  .portfolio-canvas-wrapper .rounded-full,
+  .builder-preview-wrapper .rounded-lg,
+  .builder-preview-wrapper .rounded-md,
+  .builder-preview-wrapper .rounded-xl,
+  .builder-preview-wrapper .rounded-2xl,
+  .builder-preview-wrapper .rounded-3xl,
+  .builder-preview-wrapper .rounded-full {
     border-radius: var(--radius) !important;
   }
-  
+
   /* 2. Button Style: OUTLINE */
   [data-btn-style="outline"] .bg-primary:not(:hover) {
     background-color: transparent !important;

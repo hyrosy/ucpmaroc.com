@@ -203,14 +203,14 @@ const Navbar: React.FC = () => {
     <nav
       aria-label="Main Navigation"
       className={cn(
-        "dark fixed top-0 inset-x-0 z-50 transition-all duration-300 ease-in-out border-b",
+        "dark fixed top-0 inset-x-0 z-50 pt-safe transition-all duration-300 ease-in-out border-b",
         isHidden ? "-translate-y-full" : "translate-y-0",
         isScrolled
           ? "bg-zinc-950/80 backdrop-blur-xl border-white/10 shadow-sm py-2"
           : "bg-zinc-950 border-white/5 py-3"
       )}
     >
-      <div className="max-w-[1400px] mx-auto px-6 md:px-8">
+      <div className="max-w-[1400px] mx-auto px-safe md:px-8">
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link to="/" className="flex-shrink-0 flex items-center" aria-label="Go to homepage">
@@ -431,8 +431,8 @@ const Navbar: React.FC = () => {
                   </SheetHeader>
 
                   <ScrollArea className="flex-1">
-                    <div className="p-8">
-                      <ul className="space-y-8">
+                      <div className="p-6 sm:p-8">
+                        <ul className="space-y-2">
                         {allMenuItems.map((item) => {
                           const IconComponent = item.icon;
                           const LinkComponent =
@@ -442,13 +442,13 @@ const Navbar: React.FC = () => {
                                 <LinkComponent
                                   to={item.to}
                                   onClick={() => setIsMobileMenuOpen(false)}
-                                  className="flex items-center gap-6 group"
+                                  className="flex min-h-12 items-center gap-4 rounded-xl px-3 py-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                   <IconComponent
                                     size={24}
                                     className="text-muted-foreground group-hover:text-foreground transition-colors duration-300"
                                   />
-                                  <span className="text-3xl font-semibold text-foreground/80 group-hover:text-foreground transition-colors duration-300">
+                                  <span className="text-xl sm:text-2xl font-semibold text-foreground/80 group-hover:text-foreground transition-colors duration-300">
                                     {item.label}
                                   </span>
                                 </LinkComponent>
@@ -460,7 +460,7 @@ const Navbar: React.FC = () => {
                   </ScrollArea>
 
                   {/* Mobile Footer Auth Section */}
-                  <div className="p-8 mt-auto pb-12">
+                  <div className="p-6 sm:p-8 mt-auto pb-safe">
                     {isLoading ? (
                       <div className="flex justify-center p-4">
                         <Loader2 className="animate-spin text-primary" />
