@@ -20,6 +20,7 @@ const AdminMarketplaceSettingsPage = () => {
   const [listings, setListings] = useState<any[]>([]);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [selectedMedia, setSelectedMedia] = useState<string[]>([]);
+  const [updatingMedia, setUpdatingMedia] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -57,6 +58,9 @@ const AdminMarketplaceSettingsPage = () => {
   };
 
   const updateMedia = async (mediaKeys: string[], status: 'approved' | 'rejected') => {
+    setUpdatingMedia(true);
+    setMessage('');
+    try {
     const byListing = new Map<string, string[]>();
     for (const mediaKey of mediaKeys) {
       const separatorIndex = mediaKey.indexOf(':');
@@ -71,8 +75,14 @@ const AdminMarketplaceSettingsPage = () => {
       const { error } = await supabase.from('actor_services').update({ media_assets: nextAssets, media_urls: nextAssets.filter((asset: any) => asset.status === 'approved').map((asset: any) => asset.url) }).eq('id', listing.id);
       if (error) throw error;
     }
-    setListings((previous) => previous.map((listing) => ({ ...listing, media_assets: (listing.media_assets || []).map((asset: any) => mediaKeys.includes(`${listing.id}:${asset.url}`) ? { ...asset, status } : asset) })));
-    setSelectedMedia([]);
+      setListings((previous) => previous.map((listing) => ({ ...listing, media_assets: (listing.media_assets || []).map((asset: any) => mediaKeys.includes(`${listing.id}:${asset.url}`) ? { ...asset, status } : asset) })));
+      setSelectedMedia([]);
+      setMessage(`Selected images ${status}.`);
+    } catch (error) {
+      setMessage(`Could not update gallery images: ${(error as Error).message}`);
+    } finally {
+      setUpdatingMedia(false);
+    }
   };
 
   const pendingMedia = listings.flatMap((listing) => (listing.media_assets || []).filter((asset: any) => asset.status === 'pending').map((asset: any) => ({ ...asset, listingId: listing.id, actorName: listing.actors?.ActorName, listingTitle: listing.title })));
@@ -156,7 +166,8 @@ const AdminMarketplaceSettingsPage = () => {
               <p className='font-medium'>All categories</p>
               <p className='text-sm text-muted-foreground'>{selectedCount} / {MARKETPLACE_SERVICE_CATALOG.length} enabled</p>
             </div>
-            <Checkbox checked={allSelected} onCheckedChange={(checked) => handleToggleAll(Boolean(checked))} />
+            <Checkbox id='all-marketplace-categories' checked={allSelected} onCheckedChange={(checked) => handleToggleAll(Boolean(checked))} />
+            <Label htmlFor='all-marketplace-categories' className='sr-only'>Enable all marketplace categories</Label>
           </div>
 
           <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
@@ -166,11 +177,12 @@ const AdminMarketplaceSettingsPage = () => {
               return (
                 <div key={service.id} className='rounded-lg border p-4 flex items-start gap-3'>
                   <Checkbox
+                    id={`marketplace-category-${service.id}`}
                     checked={checked}
                     onCheckedChange={(value) => handleToggle(service.id, Boolean(value))}
                   />
                   <div className='space-y-1'>
-                    <Label className='font-semibold'>{service.label}</Label>
+                    <Label htmlFor={`marketplace-category-${service.id}`} className='font-semibold'>{service.label}</Label>
                     <p className='text-sm text-muted-foreground'>{service.description}</p>
                   </div>
                 </div>
@@ -182,7 +194,7 @@ const AdminMarketplaceSettingsPage = () => {
 
       <Card>
         <CardHeader>
-          <div className='flex items-center justify-between gap-4'><div><CardTitle>Gallery image approvals</CardTitle><CardDescription>Select multiple new images and approve them together.</CardDescription></div><Button onClick={() => updateMedia(selectedMedia, 'approved')} disabled={!selectedMedia.length}>Approve selected ({selectedMedia.length})</Button></div>
+          <div className='flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center'><div><CardTitle>Gallery image approvals</CardTitle><CardDescription>Select multiple new images and approve them together.</CardDescription></div><Button onClick={() => updateMedia(selectedMedia, 'approved')} disabled={!selectedMedia.length || updatingMedia}>{updatingMedia ? 'Updating...' : `Approve selected (${selectedMedia.length})`}</Button></div>
         </CardHeader>
         <CardContent>
           {pendingMedia.length === 0 ? <p className='text-sm text-muted-foreground'>No pending gallery images.</p> : <div className='grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5'>{pendingMedia.map((asset: any) => { const key = `${asset.listingId}:${asset.url}`; const checked = selectedMedia.includes(key); return <button type='button' key={key} onClick={() => setSelectedMedia((previous) => checked ? previous.filter((item) => item !== key) : [...previous, key])} className={`relative overflow-hidden rounded-xl border-2 text-left ${checked ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}><img src={asset.url} alt={asset.listingTitle || 'Pending service gallery'} className='aspect-square w-full object-cover' /><span className='block truncate p-2 text-xs'>{asset.actorName || 'Provider'}</span>{checked && <span className='absolute right-2 top-2 rounded-full bg-primary px-2 py-1 text-xs text-primary-foreground'>Selected</span>}</button>; })}</div>}

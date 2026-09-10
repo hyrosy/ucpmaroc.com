@@ -210,9 +210,9 @@ const AdminDashboardLayout = () => {
         {/* --- MAIN CONTENT --- */}
         <main
           className={cn(
-            "flex-1 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
+            "flex-1 min-w-0 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
             isCollapsed ? "md:ml-[72px]" : "md:ml-[260px]",
-            "app-bottom-safe md:pb-8"
+            "app-bottom-safe pb-20 md:pb-8"
           )}
         >
           <Outlet />
@@ -296,6 +296,11 @@ const AdminDashboardLayout = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="border-t border-border/40 bg-muted/20 p-4">
+                <Button variant="ghost" onClick={handleLogout} className="w-full justify-start text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" /> Log out
+                </Button>
               </div>
             </SheetContent>
           </Sheet>

@@ -226,6 +226,7 @@ export default function TopUpModal({
     setPaymentMethod("card");
     setIsInitializing(true);
     setClientSecret(null);
+    setCryptoInvoiceUrl(null);
 
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -252,6 +253,7 @@ export default function TopUpModal({
     } catch (err: any) {
       notify("error", "Error", err.message);
       setSelectedPack(null);
+      setCryptoInvoiceUrl(null);
     } finally {
       setIsInitializing(false);
     }
@@ -358,6 +360,7 @@ export default function TopUpModal({
     if (!open) {
       setSelectedPack(null);
       setClientSecret(null);
+      setCryptoInvoiceUrl(null);
       setActiveTab("packs");
       if (tourStep === 3 || tourStep === 4) {
         window.dispatchEvent(new CustomEvent("TOUR_STEP_CHANGED", { detail: 0 }));
@@ -438,6 +441,7 @@ export default function TopUpModal({
                 variant="ghost"
                 size="icon"
                 onClick={() => setSelectedPack(null)}
+                aria-label="Back to coin packs"
                 className="h-8 w-8 rounded-full bg-muted/50 hover:bg-muted transition-transform active:scale-90"
               >
                 <ArrowLeft size={16} />
@@ -626,6 +630,7 @@ export default function TopUpModal({
                         <div className="flex-grow w-full rounded-2xl overflow-hidden border border-border/50 bg-white relative animate-in zoom-in-95 min-h-[400px]">
                           <iframe
                             src={cryptoInvoiceUrl}
+                            title="Crypto payment checkout"
                             className="absolute inset-0 w-full h-full border-none"
                             allow="clipboard-read; clipboard-write"
                           />
@@ -745,11 +750,20 @@ export default function TopUpModal({
                   return (
                     <div
                       key={pack.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Buy ${pack.name} for $${pack.cost.toFixed(2)}`}
                       className={cn(
                         "relative rounded-3xl border dark:border-white/10 overflow-hidden transition-all duration-300 active:scale-[0.98] sm:hover:scale-[1.02] flex flex-col shadow-xl cursor-pointer group hover:shadow-2xl hover:shadow-indigo-500/10",
                         style.bg
                       )}
                       onClick={() => handleSelectPack(pack)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleSelectPack(pack);
+                        }
+                      }}
                     >
                       <div className="p-4 flex justify-between relative z-10 pointer-events-none">
                         <div className="flex gap-1">
@@ -813,6 +827,8 @@ export default function TopUpModal({
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <div className="relative">
                       <Input
+                        id="custom-coins"
+                        aria-label="Custom coin amount"
                         type="number"
                         placeholder="e.g. 750"
                         min="50"
@@ -858,6 +874,8 @@ export default function TopUpModal({
                   </p>
                 </div>
                 <Input
+                  id="redeem-code"
+                  aria-label="Gift code"
                   className={cn("text-center font-mono uppercase text-2xl h-14 font-bold tracking-widest bg-background border-2 transition-all", tourStep === 4 && "ring-4 ring-primary")}
                   placeholder="XXXX-XXXX"
                   value={redeemCode}

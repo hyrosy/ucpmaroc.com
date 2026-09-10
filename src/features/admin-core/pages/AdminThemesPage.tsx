@@ -169,11 +169,13 @@ export default function AdminThemesPage() {
           <div className="flex-grow overflow-hidden flex flex-col p-6">
             {selectedTheme?.files ? (
               <Tabs defaultValue={Object.keys(selectedTheme.files)[0]} className="flex flex-col h-full">
-                <TabsList className="w-max mb-4">
+                <div className="mb-4 max-w-full overflow-x-auto">
+                <TabsList className="w-max">
                   {Object.keys(selectedTheme.files).map(filename => (
                     <TabsTrigger key={filename} value={filename}>{filename}</TabsTrigger>
                   ))}
                 </TabsList>
+                </div>
                 
                 {Object.entries(selectedTheme.files).map(([filename, code]) => (
                   <TabsContent key={filename} value={filename} className="flex-grow mt-0 h-full">
@@ -193,7 +195,7 @@ export default function AdminThemesPage() {
             )}
           </div>
 
-          <DialogFooter className="p-6 border-t bg-muted/30 shrink-0 flex items-center justify-between sm:justify-between w-full">
+          <DialogFooter className="flex shrink-0 flex-col items-stretch gap-3 border-t bg-muted/30 p-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <Button 
               variant="destructive" 
               onClick={() => handleReject(selectedTheme.id)}

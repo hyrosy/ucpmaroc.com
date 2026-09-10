@@ -63,7 +63,7 @@ const MyShortlistPage = () => {
                     {likedDemos.length > 0 ? (
                         likedDemos.map(like => (
                             <div key={like.id} className="bg-card p-4 rounded-lg border border">
-                                <div className="flex items-center gap-4">
+                                <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:gap-4">
                                     <img src={like.actors.HeadshotURL} alt={like.actors.ActorName} className="w-16 h-16 rounded-md object-cover" />
                                     <div className="flex-grow">
                                         <Link to={`/actor/${like.actors.slug}`} className="font-bold text-foreground hover:text-purple-400 transition-colors">
@@ -71,7 +71,7 @@ const MyShortlistPage = () => {
                                         </Link>
                                         <p className="text-sm text-muted-foreground">Main Demo Reel</p>
                                     </div>
-                                    <audio controls src={like.demo_url} className="h-10"></audio>
+                                    <audio aria-label={`Demo by ${like.actors.ActorName}`} controls src={like.demo_url} className="h-10 w-full sm:w-auto"></audio>
                                 </div>
                             </div>
                         ))

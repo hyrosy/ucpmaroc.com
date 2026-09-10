@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/supabaseClient";
 import { useOutletContext } from "react-router-dom";
-import { ActorDashboardContextType } from "@/layouts/ActorDashboardLayout"; "@/features/talent-marketplace";
+import { ActorDashboardContextType } from "@/layouts/ActorDashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Loader2,
@@ -31,6 +31,7 @@ import { Badge } from "@/components/ui/badge";
 const AnalyticsPage = () => {
   const { actorData, selectedSiteId, setSelectedSiteId } = useOutletContext<ActorDashboardContextType>();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Filter State
   const [sites, setSites] = useState<any[]>([]);
@@ -68,14 +69,16 @@ const AnalyticsPage = () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data: events } = await supabase
+      const { data: events, error: eventsError } = await supabase
         .from("analytics_events")
         .select("*")
         .eq("actor_id", actorData.id)
         .gte("created_at", thirtyDaysAgo.toISOString())
         .order("created_at", { ascending: false });
 
-      if (events) {
+      if (eventsError) {
+        setError("We could not load your analytics right now.");
+      } else if (events) {
         setAllEvents(events);
       }
       setLoading(false);
@@ -171,6 +174,16 @@ const AnalyticsPage = () => {
     return (
       <div className="flex h-96 items-center justify-center">
         <Loader2 className="animate-spin text-primary" />
+      </div>
+    );
+
+  if (error)
+    return (
+      <div className="flex h-96 flex-col items-center justify-center gap-3 text-center">
+        <p className="font-semibold text-destructive">{error}</p>
+        <button type="button" onClick={() => window.location.reload()} className="text-sm font-semibold text-primary hover:underline">
+          Try again
+        </button>
       </div>
     );
 

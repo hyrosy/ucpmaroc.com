@@ -1,12 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import React, { useCallback, useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { supabase } from "@/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  ArrowLeft,
   CreditCard,
-  CheckCircle2,
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
@@ -16,21 +14,24 @@ export default function AdminDomainOrderDetailPage() {
   const { id } = useParams();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [charging, setCharging] = useState(false);
 
   useEffect(() => {
     fetchData();
-  }, [id]);
+  }, [fetchData]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setError(null);
     const { data } = await supabase
       .from("store_orders")
       .select("*, store_domains(*)")
       .eq("id", id)
       .single();
+    if (!data) setError("This domain order could not be found.");
     setOrder(data);
     setLoading(false);
-  };
+  }, [id]);
 
   const handleChargeRent = async () => {
     if (
@@ -60,7 +61,8 @@ export default function AdminDomainOrderDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-10">Loading...</div>;
+  if (loading) return <div className="flex min-h-[50vh] items-center justify-center p-8 text-muted-foreground">Loading order details...</div>;
+  if (error || !order) return <div className="mx-auto flex min-h-[50vh] max-w-lg flex-col items-center justify-center gap-4 p-8 text-center"><AlertCircle className="h-10 w-10 text-destructive" /><h1 className="text-xl font-semibold">Unable to load order</h1><p className="text-sm text-muted-foreground">{error || "The requested order is unavailable."}</p><Button variant="outline" onClick={fetchData}><RefreshCw className="mr-2 h-4 w-4" /> Try again</Button></div>;
 
   return (
     <div className="min-h-screen bg-background p-8">

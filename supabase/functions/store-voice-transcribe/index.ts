@@ -49,15 +49,21 @@ serve(async (req) => {
       });
     }
 
-    const upstreamForm = new FormData();
-    upstreamForm.append("file", audioFile, "voice-note.webm");
-    upstreamForm.append("model", "gpt-4o-mini-transcribe");
+    const transcribe = async (model: string) => {
+      const upstreamForm = new FormData();
+      upstreamForm.append("file", audioFile, "voice-note.webm");
+      upstreamForm.append("model", model);
+      return fetch("https://api.openai.com/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${openAiKey}` },
+        body: upstreamForm,
+      });
+    };
 
-    const transcriptionRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${openAiKey}` },
-      body: upstreamForm,
-    });
+    let transcriptionRes = await transcribe("gpt-4o-mini-transcribe");
+    if (!transcriptionRes.ok) {
+      transcriptionRes = await transcribe("whisper-1");
+    }
 
     if (!transcriptionRes.ok) {
       const errText = await transcriptionRes.text();
@@ -69,7 +75,15 @@ serve(async (req) => {
     }
 
     const result = await transcriptionRes.json();
-    return new Response(JSON.stringify({ text: result.text || "" }), {
+    const text = typeof result.text === "string" ? result.text.trim() : typeof result.transcript === "string" ? result.transcript.trim() : "";
+    if (!text) {
+      console.error("Transcription response did not contain text", { keys: Object.keys(result) });
+      return new Response(JSON.stringify({ error: "Transcription returned no text" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    return new Response(JSON.stringify({ text }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

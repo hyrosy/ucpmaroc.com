@@ -123,7 +123,7 @@ const ActorEarningsPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto"><Table className="min-w-[560px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Order ID</TableHead>
@@ -167,7 +167,7 @@ const ActorEarningsPage = () => {
                 </TableRow>
               )}
             </TableBody>
-          </Table>
+          </Table></div>
         </CardContent>
       </Card>
     </div>

@@ -363,6 +363,7 @@ const IframePreview = ({
             )}
             onClick={() => setViewport("desktop")}
             title="Desktop preview"
+            aria-label="Desktop preview"
           >
             <Monitor size={16} />
           </Button>
@@ -375,6 +376,7 @@ const IframePreview = ({
             )}
             onClick={() => setViewport("tablet")}
             title="Tablet preview"
+            aria-label="Tablet preview"
           >
             <Tablet size={16} />
           </Button>
@@ -387,6 +389,7 @@ const IframePreview = ({
             )}
             onClick={() => setViewport("mobile")}
             title="Mobile preview"
+            aria-label="Mobile preview"
           >
             <Smartphone size={16} />
           </Button>
@@ -396,6 +399,7 @@ const IframePreview = ({
             className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
             onClick={sendDataToIframe}
             title="Refresh preview"
+            aria-label="Refresh preview"
           >
             <RefreshCw size={16} />
           </Button>
@@ -481,6 +485,7 @@ const PortfolioBuilderPage = () => {
     activePortfolioIdParam
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
   const [editingSection, setEditingSection] = useState<PortfolioSection | null>(
     null
@@ -755,8 +760,9 @@ const PortfolioBuilderPage = () => {
     if (!hasUnsavedChanges || isLoading || !activePortfolioId) return;
     const autoSaveTimer = setTimeout(async () => {
       setIsSaving(true);
+      let saveFailed = false;
       if (activePageId === "home") {
-        await supabase
+        const { error: portfolioError } = await supabase
           .from("portfolios")
           .update({
             sections: sections,
@@ -764,22 +770,29 @@ const PortfolioBuilderPage = () => {
             updated_at: new Date().toISOString(),
           })
           .eq("id", activePortfolioId);
-          
+        saveFailed = !!portfolioError;
+
         fetchPortfolio();
       } else {
-        await supabase
+        const { error: pageError } = await supabase
           .from("pro_pages")
           .update({ sections: sections })
           .eq("id", activePageId);
-        await supabase
+        const { error: themeError } = await supabase
           .from("portfolios")
           .update({ theme_config: themeConfig })
           .eq("id", activePortfolioId);
-          
+        saveFailed = !!pageError || !!themeError;
+
         fetchCustomPages();
         fetchPortfolio();
       }
-      markSaved();
+      if (saveFailed) {
+        setSaveError("Auto-save failed. Your latest changes are not saved yet.");
+      } else {
+        setSaveError(null);
+        markSaved();
+      }
       setIsSaving(false);
     }, 1500);
     return () => clearTimeout(autoSaveTimer);
@@ -928,8 +941,9 @@ const PortfolioBuilderPage = () => {
   const handleManualSave = async () => {
     if (!activePortfolioId) return;
     setIsSaving(true);
+    let saveFailed = false;
     if (activePageId === "home") {
-      await supabase
+      const { error: portfolioError } = await supabase
         .from("portfolios")
         .update({
           sections: sections,
@@ -938,22 +952,29 @@ const PortfolioBuilderPage = () => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", activePortfolioId);
-        
+      saveFailed = !!portfolioError;
+
       fetchPortfolio();
     } else {
-      await supabase
+      const { error: pageError } = await supabase
         .from("pro_pages")
         .update({ sections: sections })
         .eq("id", activePageId);
-      await supabase
+      const { error: themeError } = await supabase
         .from("portfolios")
         .update({ theme_config: themeConfig })
         .eq("id", activePortfolioId);
-        
+      saveFailed = !!pageError || !!themeError;
+
       fetchCustomPages();
       fetchPortfolio();
     }
-    markSaved();
+    if (saveFailed) {
+      setSaveError("Save failed. Please try again.");
+    } else {
+      setSaveError(null);
+      markSaved();
+    }
     setIsSaving(false);
   };
 
@@ -1209,6 +1230,7 @@ const PortfolioBuilderPage = () => {
                     disabled={isDeletingPage}
                     className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
                     title="Delete Page"
+                    aria-label="Delete page"
                   >
                     {isDeletingPage ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -1230,6 +1252,7 @@ const PortfolioBuilderPage = () => {
               onClick={undo}
               disabled={past.length === 0}
               title="Undo (Cmd+Z)"
+              aria-label="Undo"
             >
               <Undo2 className="w-4 h-4" />
             </Button>
@@ -1239,6 +1262,7 @@ const PortfolioBuilderPage = () => {
               onClick={redo}
               disabled={future.length === 0}
               title="Redo (Cmd+Shift+Z)"
+              aria-label="Redo"
             >
               <Redo2 className="w-4 h-4" />
             </Button>
@@ -1318,21 +1342,27 @@ const PortfolioBuilderPage = () => {
               disabled={isSaving}
               size="sm"
               variant={hasUnsavedChanges ? "secondary" : "outline"}
+              aria-label={saveError || (hasUnsavedChanges ? "Save draft" : "Saved")}
+              title={saveError || undefined}
               className={cn(
                 "min-w-[120px] transition-all",
-                hasUnsavedChanges
+                saveError
+                  ? "bg-destructive/10 text-destructive hover:bg-destructive/20"
+                  : hasUnsavedChanges
                   ? "bg-amber-500 hover:bg-amber-600 text-white"
                   : "text-muted-foreground"
               )}
             >
               {isSaving ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : saveError ? (
+                <CloudOff className="w-4 h-4 mr-2" />
               ) : hasUnsavedChanges ? (
                 <CloudOff className="w-4 h-4 mr-2" />
               ) : (
                 <Cloud className="w-4 h-4 mr-2" />
               )}
-              {isSaving ? "Saving..." : hasUnsavedChanges ? "Save Draft" : "Saved"}
+              {isSaving ? "Saving..." : saveError ? "Retry Save" : hasUnsavedChanges ? "Save Draft" : "Saved"}
             </Button>
           </div>
         </div>
@@ -1521,6 +1551,14 @@ const PortfolioBuilderPage = () => {
                                       if (!renamingId)
                                         setEditingSection(section);
                                     }}
+                                    role="button"
+                                    tabIndex={renamingId ? -1 : 0}
+                                    onKeyDown={(event) => {
+                                      if (!renamingId && (event.key === "Enter" || event.key === " ")) {
+                                        event.preventDefault();
+                                        setEditingSection(section);
+                                      }
+                                    }}
                                   >
                                     <CardContent className="p-4 flex items-start gap-3">
                                       <div
@@ -1590,11 +1628,12 @@ const PortfolioBuilderPage = () => {
                                                 </span>
                                               </div>
                                             </div>
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                                               <Button
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                                                aria-label={`Rename ${section.type.replace(/_/g, " ")} section`}
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   setRenamingId(section.id);
@@ -1610,6 +1649,7 @@ const PortfolioBuilderPage = () => {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                                                aria-label={section.isVisible ? "Hide section" : "Show section"}
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   updateSection(section.id, {
@@ -1628,6 +1668,7 @@ const PortfolioBuilderPage = () => {
                                                 size="icon"
                                                 className="h-9 w-9 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
                                                 title="Remove section"
+                                                aria-label="Remove section"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
                                                   if (confirm("Remove section?"))

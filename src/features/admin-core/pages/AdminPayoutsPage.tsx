@@ -184,7 +184,7 @@ const AdminPayoutsPage = () => {
 
             {/* --- PENDING PAYOUTS TAB (Correct) --- */}
             <TabsContent value="pending">
-              <Table>
+              <div className="overflow-x-auto"><Table className="min-w-[720px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Actor</TableHead>
@@ -230,6 +230,7 @@ const AdminPayoutsPage = () => {
                             size="sm"
                             disabled={payingActorId === payout.actor_id}
                             onClick={() => handleMarkAsPaid(payout.actor_id)}
+                            aria-label={`Mark ${payout.ActorName} payout as paid`}
                           >
                             {payingActorId === payout.actor_id ? (
                               <RefreshCw className="h-4 w-4 animate-spin" />
@@ -249,12 +250,12 @@ const AdminPayoutsPage = () => {
                     </TableRow>
                   )}
                 </TableBody>
-              </Table>
+              </Table></div>
             </TabsContent>
 
             {/* --- 3. FIX in PAYOUT HISTORY TAB --- */}
             <TabsContent value="history">
-              <Table>
+              <div className="overflow-x-auto"><Table className="min-w-[560px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Actor</TableHead>
@@ -308,7 +309,7 @@ const AdminPayoutsPage = () => {
                     </TableRow>
                   )}
                 </TableBody>
-              </Table>
+              </Table></div>
             </TabsContent>
           </CardContent>
         </Card>

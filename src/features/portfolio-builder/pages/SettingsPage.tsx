@@ -911,6 +911,14 @@ const SettingsPage = () => {
                   if (siteSlots.remaining > 0) setIsCreateOpen(true);
                   else handleBuySlot();
                 }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    if (siteSlots.remaining > 0) setIsCreateOpen(true);
+                    else handleBuySlot();
+                  }
+                }}
+                aria-label={siteSlots.remaining > 0 ? "Create a new website" : "Purchase a website slot"}
               >
                 <div
                   className={cn(
@@ -1018,6 +1026,7 @@ const SettingsPage = () => {
                             href={`/pro/${site.public_slug}`}
                             target="_blank"
                             rel="noreferrer"
+                            aria-label={`Open ${site.site_name || "website"} in a new tab`}
                             className="text-muted-foreground hover:text-foreground p-2"
                           >
                             <ExternalLink size={18} />
@@ -1099,6 +1108,7 @@ const SettingsPage = () => {
                         asChild
                       >
                         <a href={`/dashboard/portfolio?id=${site.id}`}>
+                          <span className="sr-only">Edit {site.site_name || "website"}</span>
                           <LayoutTemplate size={16} />
                         </a>
                       </Button>
@@ -1107,6 +1117,7 @@ const SettingsPage = () => {
                         variant="ghost"
                         className="h-10 w-10 rounded-xl text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
                         onClick={() => openDeleteDialog(site.id)}
+                        aria-label={`Delete ${site.site_name || "website"}`}
                       >
                         <Trash2 size={16} />
                       </Button>

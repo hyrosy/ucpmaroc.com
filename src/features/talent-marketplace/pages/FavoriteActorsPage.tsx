@@ -141,7 +141,7 @@ const FavoriteActorsPage = () => {
                 </div>
                 
                 {favoriteActors.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
                         {favoriteActors.map(actor => (
                             <ActorCard
                                 key={actor.id}
@@ -162,16 +162,18 @@ const FavoriteActorsPage = () => {
             </div>
             
             {/* Audio Player */}
-            <GlobalAudioPlayer
-                audioRef={audioRef}
-                currentTrack={currentTrack}
-                isPlaying={isPlaying}
-                onPlayPause={handlePlayPause}
-                duration={duration}
-                currentTime={currentTime}
-            />
+            <div role="region" aria-label="Audio player for favorite actors">
+                <GlobalAudioPlayer
+                    audioRef={audioRef}
+                    currentTrack={currentTrack}
+                    isPlaying={isPlaying}
+                    onPlayPause={handlePlayPause}
+                    duration={duration}
+                    currentTime={currentTime}
+                />
+            </div>
             {/* Hidden audio element */}
-            <audio ref={audioRef} src={currentTrack?.url || ''} />
+            <audio aria-label={currentTrack ? `Demo by ${currentTrack.name}` : "Favorite actor demo player"} ref={audioRef} src={currentTrack?.url || ''} />
         </div>
     );
 };

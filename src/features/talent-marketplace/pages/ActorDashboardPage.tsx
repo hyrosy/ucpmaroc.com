@@ -938,7 +938,7 @@ const ActorDashboardPage = () => {
                           </div>
                         </div>
                         <Button variant="ghost" size="icon" onClick={() => handleDemoDelete(demo.id, demo.demo_url)} className="text-destructive hover:text-destructive">
-                          <Trash2 size={16} />
+                          <Trash2 size={16} aria-hidden="true" />
                         </Button>
                       </Card>
                     )) : <p className="text-muted-foreground text-sm text-center py-4">No portfolio demos uploaded yet.</p>}
@@ -973,6 +973,7 @@ const ActorDashboardPage = () => {
                         <CardHeader>
                           <Button
                             variant="ghost" size="icon"
+                            aria-label={`Delete recording ${rec.name}`}
                             onClick={() => handleDeleteRecording(rec)}
                             disabled={isDeletingRecording === rec.id}
                             className="absolute top-2 right-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition"
@@ -985,13 +986,13 @@ const ActorDashboardPage = () => {
                         <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div className="space-y-1">
                             <Label className="text-xs">Raw Audio:</Label>
-                            <audio controls src={rec.raw_audio_url} className="w-full h-10" />
+                            <audio aria-label={`Raw recording: ${rec.name}`} controls src={rec.raw_audio_url} className="w-full h-10" />
                           </div>
                           <div className="space-y-1">
                             {rec.status === 'cleaned' && rec.cleaned_audio_url ? (
                               <>
                                 <Label className="text-xs text-green-500">Cleaned Audio (AI):</Label>
-                                <audio controls src={rec.cleaned_audio_url} className="w-full h-10" />
+                                <audio aria-label={`Cleaned recording: ${rec.name}`} controls src={rec.cleaned_audio_url} className="w-full h-10" />
                               </>
                             ) : (
                               <div className="h-full flex items-end">

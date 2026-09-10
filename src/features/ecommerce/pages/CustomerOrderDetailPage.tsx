@@ -105,6 +105,7 @@ export default function CustomerOrderDetailPage() {
               <Input placeholder="Type your message..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="rounded-full bg-muted/50 border-transparent focus-visible:ring-primary h-10" />
               <Button type="submit" size="icon" className="rounded-full shrink-0 h-10 w-10 shadow-sm" disabled={!newMessage.trim() || isSending}>
                 {isSending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                <span className="sr-only">Send message</span>
               </Button>
             </form>
           </Card>

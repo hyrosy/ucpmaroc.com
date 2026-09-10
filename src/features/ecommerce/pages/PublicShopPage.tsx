@@ -98,6 +98,11 @@ export default function PublicShopPage() {
         collectionsQuery,
       ]);
 
+      if (productsRes.error || collectionsRes.error) {
+        setError("We could not load this store right now.");
+        setLoading(false);
+        return;
+      }
       if (productsRes.data) setProducts(productsRes.data);
       if (collectionsRes.data) setCollections(collectionsRes.data);
 

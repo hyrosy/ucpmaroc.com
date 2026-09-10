@@ -35,6 +35,7 @@ const DomainCheckout = () => {
   
   // Payment State
   const [submitting, setSubmitting] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isSettingUpStripe, setIsSettingUpStripe] = useState(false);
   const [stripeCustomerId, setStripeCustomerId] = useState<string | null>(null);
@@ -133,14 +134,17 @@ const DomainCheckout = () => {
 
   const handleBankOrder = async () => {
     if (!formData.fullName || !formData.cin || !formData.phone || sigPad.current.isEmpty()) {
-        alert("Please fill in all details and sign."); return;
+        setCheckoutError("Please fill in all details and sign.");
+        return;
     }
     setSubmitting(true);
+    setCheckoutError(null);
     try {
         const newOrder = await createOrder('awaiting_payment');
         navigate(`/marketplace/order/${newOrder.id}/status`);
     } catch (err: any) {
-        alert(err.message); setSubmitting(false);
+        setCheckoutError(err.message);
+        setSubmitting(false);
     }
   };
 
@@ -149,7 +153,7 @@ const DomainCheckout = () => {
         const newOrder = await createOrder('paid', paymentIntentId);
         navigate(`/marketplace/order/${newOrder.id}/status`);
     } catch (err: any) {
-        alert("Payment succeeded but order save failed: " + err.message);
+        setCheckoutError("Payment succeeded but order save failed: " + err.message);
     }
   };
 
@@ -261,6 +265,12 @@ const DomainCheckout = () => {
           <div className="mt-6">
             <div className="flex justify-between items-center mb-1 text-sm font-bold"><span>Total Due:</span><span className="text-2xl text-blue-600">{priceData.total} MAD</span></div>
             <p className="text-right text-xs text-slate-500 mb-4 italic">{priceData.label}</p>
+
+            {checkoutError && (
+              <p role="alert" className="mb-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+                {checkoutError}
+              </p>
+            )}
 
             {paymentMethod === 'stripe' && (
                 <div className="animate-in fade-in zoom-in duration-300">

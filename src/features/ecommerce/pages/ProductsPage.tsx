@@ -774,10 +774,10 @@ export default function ProductsPage() {
                         <Label>Digital Files</Label>
                         <p className="text-[10px] text-muted-foreground -mt-1">These files will be automatically emailed to the customer upon successful payment.</p>
                         <div className="space-y-2">{(formData.digital_files || []).map((file: any, idx: number) => (<div key={idx} className="flex items-center justify-between p-3 border rounded-lg bg-background shadow-sm group"><div className="flex items-center gap-3 overflow-hidden"><div className="p-2 bg-primary/10 text-primary rounded"><FileText size={16}/></div><span className="font-medium text-sm truncate">{file.name}</span></div><Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive shrink-0" onClick={() => {const newFiles = [...formData.digital_files]; newFiles.splice(idx, 1); setFormData({...formData, digital_files: newFiles});}}><Trash2 size={16}/></Button></div>))}</div>
-                        <div onClick={() => digitalFileInputRef.current?.click()} className="border-2 border-dashed border-primary/30 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-primary/10 transition-colors bg-background">
+                        <label htmlFor="digital-file-upload" className="border-2 border-dashed border-primary/30 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-primary/10 focus-within:ring-2 focus-within:ring-primary transition-colors bg-background">
                           {isUploading ? (<><Loader2 className="w-6 h-6 text-primary animate-spin mb-2" /><p className="text-xs font-medium">Uploading file...</p></>) : (<><UploadCloud className="w-6 h-6 text-primary mb-2 opacity-80" /><p className="text-xs font-bold text-primary">Add Digital File</p></>)}
-                        </div>
-                        <input type="file" ref={digitalFileInputRef} className="hidden" multiple onChange={handleDigitalUpload} />
+                        </label>
+                        <input id="digital-file-upload" type="file" ref={digitalFileInputRef} className="sr-only" multiple onChange={handleDigitalUpload} />
                       </div>
                       <div className="space-y-2 pt-2">
                         <Label>Delivery Message / Instructions</Label>

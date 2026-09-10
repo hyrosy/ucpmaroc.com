@@ -264,12 +264,6 @@ const AdminDashboardPage = () => {
     const uniqueStatuses = useMemo(() => ['all', ...new Set(orders.map(o => o.status))], [orders]);
     const uniquePaymentMethods = useMemo(() => ['all', ...new Set(orders.map(o => o.payment_method).filter(Boolean))], [orders]); // Filter out nulls
 
-    // --- NEW: Function to handle row click ---
-    const handleRowClick = (orderId: string) => {
-        navigate(`/admin/order/${orderId}`);
-    };
-    // --- End row click handler ---
-
     if (loading) {
       return <DashboardState variant="loading" title="Loading admin orders" description="Preparing the operations workspace." className="mx-4 my-8" />;
     }
@@ -392,22 +386,22 @@ const AdminDashboardPage = () => {
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                 <div className="overflow-x-auto">
+                 <div className="overflow-x-auto">
                         <Table className="min-w-[900px]">
                           <TableHeader>
                             <TableRow>
                               <TableHead>Order ID</TableHead>
-                              <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('created_at')}>
-                                <span className="flex items-center gap-1">Date <ArrowUpDown size={12} /></span>
+                              <TableHead>
+                                <Button variant="ghost" size="sm" className="-ml-3 h-8 px-3" onClick={() => handleSort('created_at')} aria-label={`Sort by date ${sortKey === 'created_at' ? sortDirection : ''}`}><span className="flex items-center gap-1">Date <ArrowUpDown size={12} /></span></Button>
                               </TableHead>
-                              <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('client_name')}>
-                                <span className="flex items-center gap-1">Client <ArrowUpDown size={12} /></span>
+                              <TableHead>
+                                <Button variant="ghost" size="sm" className="-ml-3 h-8 px-3" onClick={() => handleSort('client_name')} aria-label={`Sort by client ${sortKey === 'client_name' ? sortDirection : ''}`}><span className="flex items-center gap-1">Client <ArrowUpDown size={12} /></span></Button>
                               </TableHead>
-                              <TableHead className="cursor-pointer hover:bg-muted" onClick={() => handleSort('actor_name')}>
-                                <span className="flex items-center gap-1">Actor <ArrowUpDown size={12} /></span>
+                              <TableHead>
+                                <Button variant="ghost" size="sm" className="-ml-3 h-8 px-3" onClick={() => handleSort('actor_name')} aria-label={`Sort by actor ${sortKey === 'actor_name' ? sortDirection : ''}`}><span className="flex items-center gap-1">Actor <ArrowUpDown size={12} /></span></Button>
                               </TableHead>
-                              <TableHead className="cursor-pointer hover:bg-muted text-right" onClick={() => handleSort('total_price')}>
-                                <span className="flex items-center justify-end gap-1">Price (MAD) <ArrowUpDown size={12} /></span>
+                              <TableHead className="text-right">
+                                <Button variant="ghost" size="sm" className="-mr-3 h-8 px-3" onClick={() => handleSort('total_price')} aria-label={`Sort by price ${sortKey === 'total_price' ? sortDirection : ''}`}><span className="flex items-center justify-end gap-1">Price (MAD) <ArrowUpDown size={12} /></span></Button>
                               </TableHead>
                               <TableHead>Payment</TableHead>
                               <TableHead>Status</TableHead>
@@ -422,11 +416,10 @@ const AdminDashboardPage = () => {
                                     order.status === 'Awaiting Admin Confirmation' ? 'bg-yellow-900/30 hover:bg-yellow-900/50' : 
                                     order.status === 'Awaiting Actor Confirmation' ? 'bg-blue-900/30 hover:bg-blue-900/50' :
                                     'hover:bg-muted/50'
-                               } cursor-pointer`}
-                                onClick={() => handleRowClick(order.id)}
+                               }`}
                               >
                                 <TableCell className="p-4 font-mono text-xs text-muted-foreground">
-                                  {order.order_id_string}
+                                  <Link className="hover:underline" to={`/admin/order/${order.id}`}>{order.order_id_string}</Link>
                                 </TableCell>
                                 <TableCell className="p-4 whitespace-nowrap">{new Date(order.created_at).toLocaleDateString()}</TableCell>
                                 <TableCell className="p-4">{order.client_name}</TableCell>

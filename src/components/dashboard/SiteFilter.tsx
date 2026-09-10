@@ -18,10 +18,10 @@ const SiteFilter = ({ sites, selectedSiteId, onChange }: SiteFilterProps) => {
   if (sites.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 bg-background/50 border rounded-lg px-3 py-1">
+    <div className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border bg-background/50 px-2.5 py-1 sm:px-3">
         <Globe className="w-4 h-4 text-muted-foreground" />
         <Select value={selectedSiteId} onValueChange={onChange}>
-            <SelectTrigger className="w-[180px] border-0 bg-transparent focus:ring-0 h-8 text-sm">
+        <SelectTrigger className="h-8 min-w-0 w-[min(180px,calc(100vw-5rem))] border-0 bg-transparent text-sm focus:ring-0">
                 <SelectValue placeholder="All Websites" />
             </SelectTrigger>
             <SelectContent>

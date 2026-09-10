@@ -32,6 +32,7 @@ export default function StoreInboxPage() {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [messages, setMessages] = useState<StoreMessage[]>([]);
     const [newMessage, setNewMessage] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -125,6 +126,12 @@ export default function StoreInboxPage() {
 
     useEffect(() => { scrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, activeId]);
 
+    const visibleConversations = conversations.filter(conv => {
+        const query = searchQuery.trim().toLowerCase();
+        if (!query) return true;
+        return conv.visitor_session_id.toLowerCase().includes(query) || conv.last_message?.content.toLowerCase().includes(query);
+    });
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim() || !activeId) return;
@@ -148,7 +155,7 @@ export default function StoreInboxPage() {
     };
 
     return (
-        <div className="flex min-h-[calc(100dvh-8rem)] w-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm backdrop-blur-sm md:h-[calc(100dvh-8rem)] md:flex-row">
+        <div className="flex h-[calc(100dvh-8rem)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm backdrop-blur-sm md:flex-row">
             {/* Left Sidebar */}
             <div className="flex h-[38%] w-full shrink-0 flex-col border-b bg-muted/20 md:h-auto md:w-[300px] md:border-b-0 md:border-r lg:w-[350px]">
                 <div className="border-b border-border/60 bg-background/70 p-4">
@@ -157,15 +164,15 @@ export default function StoreInboxPage() {
                     </h2>
                     <div className="relative mt-4">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search visitors..." className="pl-9 bg-muted/50 border-transparent" />
+                        <Input placeholder="Search visitors..." value={searchQuery} onChange={event => setSearchQuery(event.target.value)} className="border-transparent bg-muted/50 pl-9" aria-label="Search conversations" />
                     </div>
                 </div>
                 <ScrollArea className="flex-1">
-                    {loading ? <p className="p-4 text-center text-sm text-muted-foreground">Loading...</p> 
+                    {loading ? <p className="p-4 text-center text-sm text-muted-foreground">Loading...</p>
                     : loadError ? <p className="p-8 text-center text-sm text-destructive">{loadError}</p>
-                    : conversations.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No active live chats.</p> 
+                    : visibleConversations.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">{searchQuery ? 'No conversations match your search.' : 'No active live chats.'}</p>
                     : <div className="flex flex-col">
-                        {conversations.map(conv => (
+                        {visibleConversations.map(conv => (
                             <button key={conv.id} onClick={() => setActiveId(conv.id)} className={`flex items-start gap-3 border-b p-4 text-left transition-colors hover:bg-muted/50 ${activeId === conv.id ? 'bg-primary/5 border-l-4 border-l-primary' : 'border-l-4 border-l-transparent'}`}>
                                 <Avatar className="h-10 w-10 border bg-background"><AvatarFallback className="bg-muted text-muted-foreground"><User className="h-5 w-5" /></AvatarFallback></Avatar>
                                 <div className="flex-1 overflow-hidden">

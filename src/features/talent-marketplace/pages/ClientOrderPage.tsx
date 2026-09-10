@@ -872,6 +872,7 @@ const ClientOrderPage = () => {
                           <button
                             type="button"
                             key={star}
+                            aria-label={`Rate ${star} ${star === 1 ? "star" : "stars"}`}
                             onClick={() => setRating(star)}
                             onMouseEnter={() => setHoverRating(star)}
                             onMouseLeave={() => setHoverRating(0)}

@@ -603,6 +603,7 @@ const LeadsPage = () => {
                           <Button
                             size="sm"
                             variant="ghost"
+                            aria-label={`View ${getSmartName(lead)} inquiry`}
                             className="h-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             View

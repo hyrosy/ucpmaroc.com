@@ -404,8 +404,10 @@ export default function BuilderPreview() {
                   }
                 }}
               >
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-[100]">
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 z-[100]">
                   <button
+                    type="button"
+                    aria-label={`Edit ${section.type.replace("_", " ")} section`}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();

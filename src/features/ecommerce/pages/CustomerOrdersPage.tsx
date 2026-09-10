@@ -20,6 +20,7 @@ export default function CustomerOrdersPage() {
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -39,12 +40,14 @@ export default function CustomerOrdersPage() {
         .order("created_at", { ascending: false });
 
       if (data) setOrders(data);
+      else setError("We could not load your orders.");
       setLoading(false);
     };
     fetchOrders();
   }, [customer, portfolio?.id]);
 
   if (loading) return <div className="py-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
+  if (error) return <div className="space-y-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-8 text-center"><p className="font-semibold text-destructive">{error}</p><Button variant="outline" onClick={() => window.location.reload()}>Try again</Button></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -66,7 +69,7 @@ export default function CustomerOrdersPage() {
             const StatusIcon = statusInfo.icon;
 
             return (
-              <Card key={order.id} className="rounded-2xl border-border shadow-sm hover:shadow-md transition-all cursor-pointer group" onClick={() => navigate(`./${order.id}`)}>
+              <Card key={order.id} role="button" tabIndex={0} aria-label={`Open order ${order.product_name}`} className="rounded-2xl border-border shadow-sm hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary transition-all cursor-pointer group" onClick={() => navigate(`./${order.id}`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigate(`./${order.id}`); } }}>
                 <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-muted/50 border flex items-center justify-center shrink-0">

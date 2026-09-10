@@ -287,6 +287,7 @@ const NAV_GROUPS = [
 
 const mobilePrimaryItems = [
   { to: "/dashboard", name: "Stats", icon: BarChart3 },
+  { to: "/dashboard/orders", name: "Orders", icon: Package },
   { to: "/dashboard/portfolio", name: "Editor", icon: LayoutTemplate },
   { to: "/dashboard/messages", name: "Inbox", icon: MessageSquare },
 ];
@@ -788,9 +789,9 @@ const ActorDashboardLayout = () => {
           {/* ========================================== */}
           <main
             className={cn(
-              "flex-1 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
+              "flex-1 min-w-0 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
               isCollapsed ? "md:ml-[72px]" : "md:ml-[260px]",
-              isMessagesPage ? "app-bottom-safe md:pb-0" : "app-bottom-safe md:pb-8"
+              isMessagesPage ? "app-bottom-safe md:pb-0" : "app-bottom-safe pb-20 md:pb-8"
             )}
           >
         <Outlet context={{ actorData, role: "actor", selectedSiteId, setSelectedSiteId }} />

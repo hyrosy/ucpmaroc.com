@@ -73,7 +73,7 @@ const ServiceDetailsPage: React.FC = () => {
   return (
     <main className='min-h-screen bg-background pb-20 pt-24'>
       <div className='mx-auto max-w-6xl px-4'>
-        <button onClick={() => navigate(-1)} className='mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground'><ArrowLeft className='h-4 w-4' /> Back to marketplace</button>
+        <button aria-label='Go back to marketplace' onClick={() => navigate(-1)} className='mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground'><ArrowLeft className='h-4 w-4' /> Back to marketplace</button>
         <div className='grid gap-8 lg:grid-cols-[1.4fr_0.8fr]'>
           <div>
             <div className='grid gap-3 sm:grid-cols-2'>
@@ -98,7 +98,7 @@ const ServiceDetailsPage: React.FC = () => {
             </Card>
           </aside>
         </div>
-        {listing.audio_urls?.length > 0 && <section className='mt-10 space-y-4'><h2 className='flex items-center gap-2 text-2xl font-bold'><Volume2 className='h-5 w-5 text-primary' />Service previews</h2>{listing.audio_urls.map((url) => <audio key={url} controls src={url} className='w-full' />)}</section>}
+        {listing.audio_urls?.length > 0 && <section className='mt-10 space-y-4'><h2 className='flex items-center gap-2 text-2xl font-bold'><Volume2 className='h-5 w-5 text-primary' />Service previews</h2>{listing.audio_urls.map((url, index) => <audio key={url} aria-label={`Service preview ${index + 1}`} controls src={url} className='w-full' />)}</section>}
         <section className='mt-10 space-y-4'><div className='flex items-center justify-between'><h2 className='text-2xl font-bold'>Reviews</h2><span className='text-sm text-muted-foreground'>{reviews.length} recent reviews</span></div>{reviews.length > 0 ? reviews.map((review) => <div key={review.id} className='rounded-xl border p-4'><div className='flex items-center justify-between gap-3'><div className='flex'>{[1, 2, 3, 4, 5].map((star) => <Star key={star} className={`h-4 w-4 ${star <= review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground'}`} />)}</div><span className='text-xs text-muted-foreground'>{new Date(review.created_at).toLocaleDateString()}</span></div>{review.comment && <p className='mt-2 text-sm text-muted-foreground'>{review.comment}</p>}</div>) : <p className='text-sm text-muted-foreground'>Reviews will appear here after completed projects.</p>}</section>
         <section className='mt-12 grid gap-4 md:grid-cols-3'><div className='flex gap-3 rounded-xl border p-4'><Check className='h-5 w-5 text-emerald-600' /><span className='text-sm'>Clear service scope and delivery expectations</span></div><div className='flex gap-3 rounded-xl border p-4'><Check className='h-5 w-5 text-emerald-600' /><span className='text-sm'>Secure communication with {actor.ActorName}</span></div><div className='flex gap-3 rounded-xl border p-4'><Check className='h-5 w-5 text-emerald-600' /><span className='text-sm'>Protected marketplace order process</span></div></section>
       </div>

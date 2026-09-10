@@ -180,12 +180,14 @@ const OrdersPage = () => {
   }, [allOrders, selectedSiteId, statusFilter, searchQuery]);
 
   // --- METRICS CALCULATION ---
+  const siteOrders = useMemo(() => {
+    return allOrders.filter((order) => selectedSiteId === "all" || order.portfolio_id === selectedSiteId);
+  }, [allOrders, selectedSiteId]);
+
   const metrics = useMemo(() => {
     let revenue = 0;
     let pending = 0;
-    allOrders.forEach((order) => {
-      if (order.portfolio_id !== selectedSiteId && selectedSiteId !== "all")
-        return;
+    siteOrders.forEach((order) => {
       if (order.status === "pending") pending++;
       if (order.status !== "cancelled" && order.status !== "refunded") {
         const amount = parseFloat(
@@ -194,8 +196,8 @@ const OrdersPage = () => {
         revenue += isNaN(amount) ? 0 : amount;
       }
     });
-    return { revenue, total: allOrders.length, pending };
-  }, [allOrders, selectedSiteId]);
+    return { revenue, total: siteOrders.length, pending };
+  }, [siteOrders]);
 
   // --- ACTIONS ---
   const handleRowClick = (order: ProOrder) => {
@@ -554,7 +556,7 @@ const OrdersPage = () => {
             All
           </Button>
           {Object.entries(STATUS_MAP).map(([key, info]) => {
-            const count = allOrders.filter((o) => o.status === key).length;
+            const count = siteOrders.filter((o) => o.status === key).length;
             return (
               <Button
                 key={key}
@@ -583,8 +585,8 @@ const OrdersPage = () => {
 
       {/* 🚀 BULK ACTIONS FLOATING BAR */}
       {selectedOrderIds.size > 0 && (
-        <div className="bg-foreground text-background px-6 py-4 rounded-2xl flex items-center justify-between animate-in slide-in-from-bottom-4 fade-in shadow-2xl sticky bottom-6 z-50 transition-all duration-300 border border-border">
-          <div className="flex items-center gap-4">
+        <div className="bg-foreground text-background px-4 py-3 sm:px-6 sm:py-4 rounded-2xl flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between animate-in slide-in-from-bottom-4 fade-in shadow-2xl sticky bottom-6 z-50 transition-all duration-300 border border-border">
+          <div className="flex items-center gap-3">
             <Button
               size="icon"
               variant="ghost"
@@ -599,14 +601,14 @@ const OrdersPage = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex w-full items-center gap-2 sm:w-auto sm:gap-3">
             <span className="text-xs opacity-80 hidden sm:inline-block font-medium">
               Update status to:
             </span>
             <Select
               onValueChange={(val: OrderStatus) => handleBulkUpdateStatus(val)}
             >
-              <SelectTrigger className="h-9 w-[130px] sm:w-[150px] bg-background/10 border-background/20 text-background focus:ring-0 font-semibold rounded-lg">
+              <SelectTrigger className="h-9 min-w-0 flex-1 w-auto bg-background/10 border-background/20 text-background focus:ring-0 font-semibold rounded-lg sm:w-[150px] sm:flex-none">
                 <SelectValue placeholder="Select Status" />
               </SelectTrigger>
               <SelectContent className="z-[100000] rounded-xl shadow-2xl">
@@ -651,7 +653,7 @@ const OrdersPage = () => {
                 const StatusIcon = STATUS_MAP[order.status]?.icon || Clock;
                 const isSelected = selectedOrderIds.has(order.id);
                 return (
-                  <article key={order.id} className={cn("space-y-3 p-4 transition-colors active:bg-muted/40", isSelected && "bg-primary/5")} onClick={() => handleRowClick(order)}>
+                  <article key={order.id} role="button" tabIndex={0} aria-label={`Open order ${formatOrderId(order.id)}`} className={cn("space-y-3 p-4 transition-colors active:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary", isSelected && "bg-primary/5")} onClick={() => handleRowClick(order)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleRowClick(order); } }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <Checkbox checked={isSelected} onClick={(event) => event.stopPropagation()} onCheckedChange={() => toggleOrderSelection(order.id)} aria-label={`Select order ${formatOrderId(order.id)}`} />

@@ -424,12 +424,21 @@ export function AdminChatSheet() {
                 {sessions.map((s) => (
                   <div
                     key={s.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open chat ${s.title}`}
                     className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all cursor-pointer ${
                       activeSessionId === s.id
                         ? "bg-primary text-primary-foreground font-medium shadow-sm"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => handleSelectSession(s.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectSession(s.id);
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-2 truncate">
                       <MessageSquare size={14} className="shrink-0" />
@@ -437,10 +446,11 @@ export function AdminChatSheet() {
                     </div>
                     <button
                       onClick={(e) => handleDeleteSession(e, s.id)}
+                      aria-label={`Delete chat ${s.title}`}
                       className={`shrink-0 p-1 rounded hover:bg-destructive/90 hover:text-destructive-foreground transition-opacity ${
                         activeSessionId === s.id
                           ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100"
+                          : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                       }`}
                       title="Delete chat"
                     >
