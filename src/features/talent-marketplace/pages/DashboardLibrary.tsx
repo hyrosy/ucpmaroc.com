@@ -400,6 +400,7 @@ const DashboardLibrary: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label={`Delete recording ${rec.name}`}
                     onClick={() => handleDeleteRecording(rec)}
                     disabled={isDeletingRecording === rec.id}
                     className="absolute top-2 right-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition"
@@ -419,6 +420,7 @@ const DashboardLibrary: React.FC = () => {
                   <div className="space-y-1">
                     <Label className="text-xs">Raw Audio:</Label>
                     <audio
+                      aria-label={`Raw recording: ${rec.name}`}
                       controls
                       src={rec.raw_audio_url}
                       className="w-full h-10"
@@ -431,6 +433,7 @@ const DashboardLibrary: React.FC = () => {
                           Cleaned Audio (AI):
                         </Label>
                         <audio
+                          aria-label={`Cleaned recording: ${rec.name}`}
                           controls
                           src={rec.cleaned_audio_url}
                           className="w-full h-10"

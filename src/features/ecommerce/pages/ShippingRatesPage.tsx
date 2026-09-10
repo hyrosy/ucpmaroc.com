@@ -355,9 +355,9 @@ export default function ShippingRatesPage() {
                       {rate.type === 'free_over' ? "Free" : `$${(rate.rate_cents / 100).toFixed(2)}`}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleDuplicate(rate)} title="Duplicate"><Copy className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => initForm(rate)}><Edit className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(rate.id)}><Trash2 className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Duplicate ${rate.name}`} onClick={() => handleDuplicate(rate)} title="Duplicate"><Copy className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Edit ${rate.name}`} onClick={() => initForm(rate)}><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Delete ${rate.name}`} className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(rate.id)}><Trash2 className="w-4 h-4" /></Button>
                     </td>
                   </tr>
                 )})}

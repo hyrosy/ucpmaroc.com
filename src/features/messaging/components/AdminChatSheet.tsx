@@ -32,6 +32,15 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { toast } from "sonner";
 
+const getSpeechSynthesis = (): SpeechSynthesis | null => {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return null;
+  }
+
+  const synthesis = window.speechSynthesis;
+  return synthesis && typeof synthesis.cancel === "function" ? synthesis : null;
+};
+
 // ==========================================
 // 1. ISOLATED INPUT COMPONENT (ZERO TYPING LAG)
 // ==========================================
@@ -187,7 +196,7 @@ export function AdminChatSheet() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const stopSpeech = () => {
-    window.speechSynthesis.cancel();
+    getSpeechSynthesis()?.cancel();
     setSpeakingIndex(null);
     setIsSpeechPaused(false);
   };
@@ -356,7 +365,12 @@ export function AdminChatSheet() {
   };
 
   const toggleSpeech = (text: string, index: number) => {
-    const synth = window.speechSynthesis;
+    const synth = getSpeechSynthesis();
+    if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
+      toast.error("Text-to-speech is not supported by this browser.");
+      return;
+    }
+
     if (speakingIndex === index) {
       if (isSpeechPaused) {
         synth.resume();
@@ -424,12 +438,21 @@ export function AdminChatSheet() {
                 {sessions.map((s) => (
                   <div
                     key={s.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open chat ${s.title}`}
                     className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all cursor-pointer ${
                       activeSessionId === s.id
                         ? "bg-primary text-primary-foreground font-medium shadow-sm"
                         : "hover:bg-muted text-muted-foreground hover:text-foreground"
                     }`}
                     onClick={() => handleSelectSession(s.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        handleSelectSession(s.id);
+                      }
+                    }}
                   >
                     <div className="flex items-center gap-2 truncate">
                       <MessageSquare size={14} className="shrink-0" />
@@ -437,10 +460,11 @@ export function AdminChatSheet() {
                     </div>
                     <button
                       onClick={(e) => handleDeleteSession(e, s.id)}
+                      aria-label={`Delete chat ${s.title}`}
                       className={`shrink-0 p-1 rounded hover:bg-destructive/90 hover:text-destructive-foreground transition-opacity ${
                         activeSessionId === s.id
                           ? "opacity-100"
-                          : "opacity-0 group-hover:opacity-100"
+                          : "opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
                       }`}
                       title="Delete chat"
                     >

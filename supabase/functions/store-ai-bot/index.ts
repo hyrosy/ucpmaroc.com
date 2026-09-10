@@ -58,7 +58,7 @@ serve(async (req) => {
 
     const { data: portfolio } = await supabase
       .from('portfolios')
-      .select('theme_config, site_name, sections')
+      .select('theme_config, site_name, sections, actor_id')
       .eq('id', conv.portfolio_id)
       .single();
 
@@ -108,6 +108,27 @@ serve(async (req) => {
       .eq('portfolio_id', conv.portfolio_id)
       .limit(50); // Limit to top 50 to save context tokens
 
+    const { data: pages } = await supabase
+      .from('pro_pages')
+      .select('title, slug, sections')
+      .eq('portfolio_id', conv.portfolio_id)
+      .limit(20);
+
+    const { data: serviceListings } = portfolio?.actor_id
+      ? await supabase
+        .from('actor_services')
+        .select('title, description, rate, discount_percent, delivery_time, offers, enabled, status')
+        .eq('actor_id', portfolio.actor_id)
+        .eq('enabled', true)
+        .limit(50)
+      : { data: null };
+
+    const { data: coupons } = await supabase
+      .from('pro_coupons')
+      .select('*')
+      .eq('portfolio_id', conv.portfolio_id)
+      .limit(50);
+
     // Format the catalog so the AI understands it easily
     const catalogText = products?.map(p => {
       const availability = (p.delivery_type === 'physical' && p.stock_count <= 0) ? 'Out of Stock' : 'In Stock';
@@ -115,13 +136,23 @@ serve(async (req) => {
     }).join('\n') || 'No products available currently.';
 
     // Parse Portfolio Sections for General Context
-    const sectionsText = portfolio?.sections?.map((s: Record<string, unknown>) => {
-      let text = `- [${s.type.toUpperCase()}] `;
-      if (s.data?.title) text += `${s.data.title}: `;
-      const desc = s.data?.description || s.data?.content || s.data?.text || s.data?.about_text;
-      if (desc) text += desc;
-      return text;
-    }).filter((t: string) => t.length > 15).join('\n') || 'No additional portfolio sections.';
+    const sectionsText = formatVisibleSections(portfolio?.sections);
+    const pagesText = (pages || []).map((page: Record<string, unknown>) => {
+      const pageContent = formatVisibleSections(page.sections);
+      return `- Page: ${String(page.title || page.slug || 'Untitled')}\n${pageContent}`;
+    }).join('\n') || 'No custom pages available.';
+    const offersText = (serviceListings || []).map((listing: Record<string, unknown>) => {
+      const offers = Array.isArray(listing.offers) ? listing.offers : [];
+      const packages = offers.map((offer: Record<string, unknown>) => `${offer.title || 'Offer'}: ${offer.description || ''} (${offer.price ?? listing.rate ?? 'price on request'})`).join('; ');
+      return `- ${listing.title || 'Service'}: ${listing.description || ''}${packages ? ` Packages: ${packages}` : ''}`;
+    }).join('\n') || 'No public service offers available.';
+    const couponsText = (coupons || []).filter(isCurrentlyUsableCoupon).map((coupon: Record<string, unknown>) => {
+      const type = coupon.type || coupon.discount_type;
+      const value = coupon.value_amount ?? coupon.discount_value;
+      const discount = type === 'percentage' ? `${value}%` : `$${Number(value || 0) / (type === 'fixed' ? 100 : 1)}`;
+      const minimum = coupon.min_order_amount_cents ? ` Minimum order: $${Number(coupon.min_order_amount_cents) / 100}.` : '';
+      return `- ${coupon.code}: ${discount} off.${minimum}`;
+    }).join('\n') || 'No public coupon codes are currently available.';
 
     // 6. Build the Master System Prompt
     const systemPrompt = `You are ${config.store_chat_bot_name || 'UCP Assistant'}, the AI Customer Support Assistant for ${portfolio?.site_name || 'this store'}.
@@ -134,6 +165,15 @@ ${catalogText}
 
 Here is information about the creator's portfolio, biography, services, and PRE-ANSWERED FAQs:
 ${sectionsText}
+
+Here are the visible custom pages and their content:
+${pagesText}
+
+Here are public service offers and packages:
+${offersText}
+
+Here are currently active public coupon codes and their basic terms:
+${couponsText}
 
 RULES:
 1. If the user asks about the status of an order, include the exact marker [ORDER_FORM] so the storefront can show an email and order number form. Once provided, use "check_order_status".
@@ -306,6 +346,25 @@ If the user asks about a discount or promo code, offer them a discount in exchan
               .maybeSingle());
           }
 
+          if (!order) {
+            ({ data: order } = await supabase
+              .from('pro_store_orders')
+              .select('*')
+              .eq('portfolio_id', conv.portfolio_id)
+              .eq('client_email', email)
+              .or(`order_id_string.eq.${orderId},display_id.eq.${orderId}`)
+              .maybeSingle());
+          }
+          if (!order) {
+            ({ data: order } = await supabase
+              .from('pro_store_orders')
+              .select('*')
+              .eq('portfolio_id', conv.portfolio_id)
+              .eq('customer_email', email)
+              .or(`order_id_string.eq.${orderId},display_id.eq.${orderId}`)
+              .maybeSingle());
+          }
+
           const toolResult = order 
             ? `Order found! Status is "${order.status}". Total: $${order.total_price}. Ordered on: ${new Date(order.created_at).toLocaleDateString()}` 
             : `No order found for email "${email}" and ID "${orderId}".`;
@@ -315,14 +374,16 @@ If the user asks about a discount or promo code, offer them a discount in exchan
         else if (toolCall.function.name === 'check_discount_code') {
           const { data: coupon } = await supabase
             .from('pro_coupons')
-            .select('discount_type, discount_value, end_date, is_active')
+            .select('*')
             .eq('portfolio_id', conv.portfolio_id)
-            .ilike('code', args.code)
+            .ilike('code', String(args.code || '').trim())
             .maybeSingle();
 
           let toolResult = `Coupon code "${args.code}" is invalid or does not exist.`;
-          if (coupon && coupon.is_active && (!coupon.end_date || new Date() < new Date(coupon.end_date))) {
-             const discountText = coupon.discount_type === 'percentage' ? `${coupon.discount_value}%` : `$${coupon.discount_value}`;
+          if (coupon && isCurrentlyUsableCoupon(coupon)) {
+             const couponType = coupon.type || coupon.discount_type;
+             const couponValue = coupon.value_amount ?? coupon.discount_value;
+             const discountText = couponType === 'percentage' ? `${couponValue}%` : `$${Number(couponValue || 0) / (couponType === 'fixed' ? 100 : 1)}`;
              toolResult = `Coupon "${args.code}" is valid! It provides a ${discountText} discount.`;
           }
           openAiMessages.push({ role: 'tool', tool_call_id: toolCall.id, name: toolCall.function.name, content: toolResult });
@@ -443,6 +504,46 @@ If the user asks about a discount or promo code, offer them a discount in exchan
     return new Response("AI Reply completed successfully", { status: 200 });
   } catch (err) { return new Response(String(err), { status: 500 }); }
 });
+
+function formatVisibleSections(value: unknown): string {
+  if (!Array.isArray(value)) return 'No additional content available.';
+
+  return value
+    .filter((section): section is Record<string, unknown> => Boolean(section) && typeof section === 'object' && section.isVisible !== false)
+    .map((section) => {
+      const type = typeof section.type === 'string' ? section.type.toUpperCase() : 'SECTION';
+      const content = compactText(section.data);
+      return content ? `- [${type}] ${content}` : '';
+    })
+    .filter(Boolean)
+    .join('\n') || 'No additional content available.';
+}
+
+function compactText(value: unknown, depth = 0): string {
+  if (depth > 3 || value === null || value === undefined) return '';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(item => compactText(item, depth + 1)).filter(Boolean).join('; ').slice(0, 1800);
+  if (typeof value !== 'object') return '';
+
+  return Object.entries(value as Record<string, unknown>)
+    .filter(([key]) => !['settings', 'image', 'images', 'media', 'url', 'id'].includes(key.toLowerCase()))
+    .map(([key, item]) => {
+      const text = compactText(item, depth + 1);
+      return text ? `${key.replace(/_/g, ' ')}: ${text}` : '';
+    })
+    .filter(Boolean)
+    .join(' | ')
+    .slice(0, 1800);
+}
+
+function isCurrentlyUsableCoupon(coupon: Record<string, unknown>): boolean {
+  if (coupon.is_active === false) return false;
+  const now = Date.now();
+  if (coupon.start_date && now < new Date(String(coupon.start_date)).getTime()) return false;
+  if (coupon.end_date && now >= new Date(String(coupon.end_date)).getTime()) return false;
+  if (coupon.usage_limit !== null && coupon.usage_limit !== undefined && Number(coupon.times_used || 0) >= Number(coupon.usage_limit)) return false;
+  return Boolean(coupon.code);
+}
 
 interface StoreMessageRecord {
   id?: string;

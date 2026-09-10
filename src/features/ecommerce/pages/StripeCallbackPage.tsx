@@ -36,7 +36,9 @@ const StripeCallbackPage = () => {
 
       try {
         // 2. Decode the state to get our actor and portfolio IDs
-        const { actorId, portfolioId } = JSON.parse(atob(state));
+        const decodedState = JSON.parse(atob(state));
+        const { actorId, portfolioId } = decodedState;
+        if (!actorId || !portfolioId) throw new Error("Stripe callback state is incomplete.");
 
         // 3. Send the code to our secure Edge Function to swap it for the Account ID
         const { data, error: funcError } = await supabase.functions.invoke(
@@ -55,7 +57,7 @@ const StripeCallbackPage = () => {
         // Bounce them back to the payments page after 2 seconds
         setTimeout(() => {
           navigate("/dashboard/payments");
-        }, 2000);
+        }, 3500);
       } catch (err: any) {
         console.error("OAuth Error:", err);
         setStatus("error");

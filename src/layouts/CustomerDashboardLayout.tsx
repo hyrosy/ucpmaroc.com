@@ -103,7 +103,7 @@ export default function CustomerDashboardLayout() {
   return (
     <div className="min-h-[100dvh] bg-muted/10 flex min-h-0 flex-col md:flex-row pt-[var(--public-nav-height)]">
       {/* --- DESKTOP SIDEBAR --- */}
-      <aside className="hidden md:flex min-h-0 flex-col w-[260px] bg-background border-r border-border h-[calc(100dvh-var(--public-nav-height))] sticky top-[var(--public-nav-height)] z-40 overflow-y-auto custom-scrollbar">
+      <aside className="hidden md:flex min-h-0 flex-col w-[260px] shrink-0 bg-background border-r border-border h-[calc(100dvh-var(--public-nav-height))] sticky top-[var(--public-nav-height)] z-40 overflow-y-auto custom-scrollbar">
         <div className="p-6 border-b border-border">
           <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate(`/pro/${slug}`)}>
             <div className="w-10 h-10 bg-primary/10 text-primary rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
@@ -183,7 +183,7 @@ export default function CustomerDashboardLayout() {
       </div>
 
       {/* --- MAIN DASHBOARD CONTENT --- */}
-      <main className="min-w-0 flex-1 p-4 md:p-8 max-w-5xl">
+      <main className="min-w-0 flex-1 px-4 py-5 pb-24 sm:px-6 md:px-8 md:py-8 md:pb-10">
         <Outlet context={{ customer, portfolio }} />
       </main>
     </div>

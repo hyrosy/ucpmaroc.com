@@ -116,7 +116,17 @@ export default function CustomersPage() {
         <DashboardState variant="empty" title="No customers yet" description="Customers will appear here after they create an account or place an order." />
       ) : (
         <Card className="rounded-xl shadow-sm border-border overflow-hidden animate-in fade-in">
-          <div className="overflow-x-auto">
+          <div className="space-y-3 p-4 md:hidden">
+            {filteredCustomers.map((c) => {
+              const port = sites.find(s => s.id === c.portfolio_id);
+              const ltv = calculateLTV(c.pro_orders);
+              return <div key={c.id} className="rounded-xl border bg-muted/20 p-4">
+                <div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="truncate font-bold">{c.name || "Customer"}</p><p className="truncate text-xs text-muted-foreground">{c.email}</p></div><span className="shrink-0 rounded-full bg-primary/10 px-2 py-1 text-xs font-bold text-primary">{c.pro_orders?.length || 0} orders</span></div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span>{port?.site_name || port?.public_slug || "Global"}</span><span>Joined {new Date(c.created_at).toLocaleDateString()}</span><span className="font-semibold text-primary">${ltv.toFixed(2)} LTV</span></div>
+              </div>;
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>

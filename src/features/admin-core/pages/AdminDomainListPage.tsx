@@ -153,7 +153,8 @@ export default function AdminDomainListPage() {
                 <CardTitle>Listed Domains</CardTitle>
             </CardHeader>
             <CardContent>
-                <Table>
+                <div className="overflow-x-auto">
+                <Table className="min-w-[720px]">
                 <TableHeader>
                     <TableRow>
                     <TableHead>Domain Name</TableHead>
@@ -208,7 +209,7 @@ export default function AdminDomainListPage() {
                                         </Button>
                                     )}
                                     
-                                    <Button variant="ghost" size="icon" className="text-red-500" onClick={() => handleDelete(domain.id)}>
+                                    <Button variant="ghost" size="icon" className="text-red-500" aria-label={`Delete ${domain.name}`} onClick={() => handleDelete(domain.id)}>
                                         <Trash2 className="h-4 w-4" />
                                     </Button>
                                 </div>
@@ -218,6 +219,8 @@ export default function AdminDomainListPage() {
                     })}
                 </TableBody>
                 </Table>
+                </div>
+                {domains.length === 0 && !loading && <p className="py-10 text-center text-sm text-muted-foreground">No domains listed yet. Add your first domain to begin.</p>}
             </CardContent>
         </Card>
       </div>

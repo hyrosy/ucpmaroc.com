@@ -478,6 +478,7 @@ export default function CollectionsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          aria-label={`Edit ${col.title}`}
                           onClick={() => initForm(col)}
                         >
                           <Edit className="w-4 h-4" />
@@ -485,6 +486,7 @@ export default function CollectionsPage() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          aria-label={`Delete ${col.title}`}
                           className="text-destructive hover:bg-destructive/10"
                           onClick={() => handleDelete(col.id)}
                         >

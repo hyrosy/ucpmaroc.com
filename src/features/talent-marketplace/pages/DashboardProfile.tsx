@@ -306,7 +306,7 @@ const DashboardProfile: React.FC = () => {
         )}
       </div>
       {message && (
-        <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-3 text-center text-sm font-medium">
+        <div role={message.startsWith("Error") || message.startsWith("Failed") ? "alert" : "status"} aria-live="polite" className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-3 text-center text-sm font-medium">
           {message}
         </div>
       )}
@@ -352,6 +352,7 @@ const DashboardProfile: React.FC = () => {
                   type="button"
                   variant="outline"
                   className="shadow-sm"
+                  aria-label="Change profile picture"
                   asChild
                 >
                   <span>

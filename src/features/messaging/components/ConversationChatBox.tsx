@@ -1,10 +1,9 @@
 // In src/components/ConversationChatBox.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/supabaseClient';
-import { Send, Mic, ArrowLeft, RefreshCw, FilePlus2} from 'lucide-react';
+import { Send, ArrowLeft, RefreshCw, FilePlus2} from 'lucide-react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 // Note: This version doesn't include Voice Notes for simplicity.
 // You can add it back by copying the logic from your old ChatBox.
 import { MessageSquareText } from 'lucide-react'; // Import a nice icon
@@ -21,6 +20,13 @@ interface Message {
   sender_user_id: string;
   content: string;
 
+}
+
+interface OfferDetails {
+    title: string;
+    services: string;
+    agreement: string;
+    price: number;
 }
 
 interface ChatBoxProps {
@@ -106,7 +112,7 @@ const ConversationChatBox: React.FC<ChatBoxProps> = ({ conversationId, currentUs
     };
 
     // --- This function is called by the CLIENT ---
-    const handleAcceptOffer = async (offerDetails: any) => {
+    const handleAcceptOffer = async (offerDetails: OfferDetails) => {
         const offerId = btoa(JSON.stringify(offerDetails));
         setIsAcceptingOffer(offerId);
 
@@ -151,15 +157,6 @@ const ConversationChatBox: React.FC<ChatBoxProps> = ({ conversationId, currentUs
         setIsLoading(false);
     };
 
-    const messagePaddingClass = currentUserProfileType === 'actor' 
-        ? 'pb-32' // Clears Mobile Nav (h-16) + Input (~h-16) + Margin
-        : 'pb-20'; // Clears Input only (~h-16)
-
-    // The calculated bottom position for the input form
-    const fixedInputBottom = currentUserProfileType === 'actor'
-        ? 'bottom-[4rem]' // 4rem is the height of your mobile bottom nav (h-16)
-        : 'bottom-0'; // Client view has no bottom nav
-
     return (
             
         // Outer Container: Set relative for positioning
@@ -194,7 +191,7 @@ const ConversationChatBox: React.FC<ChatBoxProps> = ({ conversationId, currentUs
             {/* --- 2. Message Area (The Scrollable Content) --- */}
             {/* pb-32 lifts content above the fixed input form (p-4 + form height) 
                AND the fixed mobile dashboard nav bar (h-16). */}
-            <div className="flex-grow h-0 overflow-y-auto p-4 pb-32 md:pb-20"> 
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-6">
                 {messagesLoading ? (
                     <div className="flex justify-center items-center h-full">
                         <p>Loading messages...</p>
@@ -296,9 +293,9 @@ const ConversationChatBox: React.FC<ChatBoxProps> = ({ conversationId, currentUs
                 ) 
             }
         </div>            
-           {/* --- 3. Input Form (FIXED TO THE VIEWPORT) --- */}
-            {/* This uses fixed positioning to bypass the scroll issues. */}
-            <div className={`fixed inset-x-0 p-4 border-t bg-background flex-shrink-0 z-50 md:bottom-0 md:left-0 md:right-0 md:border-t ${fixedInputBottom}`}>        <form onSubmit={handleSendMessage} className="flex gap-2">
+           {/* --- 3. Input Form --- */}
+            <div className="z-10 shrink-0 border-t bg-background p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] md:p-4">
+                <form onSubmit={handleSendMessage} className="flex gap-2">
                     <Input
                         type="text"
                         value={newMessage}

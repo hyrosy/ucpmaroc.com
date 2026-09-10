@@ -134,7 +134,7 @@ const AdminOrderDetailPage: React.FC = () => {
                     <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                         <div>
                             <h1 className="text-3xl font-bold text-foreground mb-1">Order #{order.order_id_string}</h1>
-                            <p className="text-sm text-slate-500">
+                            <p className="text-sm text-muted-foreground">
                                 Created: {new Date(order.created_at).toLocaleString()}
                             </p>
                         </div>
@@ -150,7 +150,7 @@ const AdminOrderDetailPage: React.FC = () => {
                             value={order.status}
                             onChange={(e) => handleAdminStatusChange(e.target.value)}
                             disabled={loading} // Disable while updating
-                             className="bg-slate-600 border border-slate-500 rounded-md p-2 text-foreground text-xs w-auto focus:ring-purple-500 focus:border-purple-500"
+                             className="bg-background border border-input rounded-md p-2 text-foreground text-xs w-auto focus:ring-primary focus:border-primary"
                         >
                             <option value="Awaiting Payment">Awaiting Payment</option>
                             <option value="In Progress">In Progress</option>
@@ -209,15 +209,15 @@ const AdminOrderDetailPage: React.FC = () => {
                      {order.deliveries && order.deliveries.length > 0 ? (
                          <div className="space-y-4">
                              {order.deliveries.map((delivery) => (
-                               <div key={delivery.id} className="bg-slate-700/50 p-3 rounded">
+                               <div key={delivery.id} className="bg-background border border/50 p-3 rounded">
                                  <p className="font-semibold text-sm mb-2">Version {delivery.version_number} <span className="text-xs text-muted-foreground ml-2">({new Date(delivery.created_at).toLocaleString()})</span></p>
-                                 <audio controls src={delivery.file_url} className="w-full h-10 mb-2"></audio>
+                                 <audio aria-label={`Delivery version ${delivery.version_number}`} controls src={delivery.file_url} className="w-full h-10 mb-2"></audio>
                                  <a href={delivery.file_url} download className="text-xs text-blue-400 hover:underline">Download File</a>
                                </div>
                              ))}
                          </div>
                      ) : (
-                         <p className="text-slate-500 text-sm">No deliveries uploaded yet.</p>
+                         <p className="text-muted-foreground text-sm">No deliveries uploaded yet.</p>
                      )}
                 </div>
 

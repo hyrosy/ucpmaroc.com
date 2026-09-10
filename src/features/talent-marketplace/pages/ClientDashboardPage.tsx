@@ -198,7 +198,15 @@ const ClientDashboardPage = () => {
             <CardDescription>A list of all your recent orders.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
+            <div className="space-y-3 md:hidden">
+              {orders.length > 0 ? orders.map(order => (
+                <div key={order.id} className="rounded-xl border bg-muted/20 p-4">
+                  <div className="flex items-start justify-between gap-3"><div><p className="font-semibold">#{order.order_id_string}</p><p className="text-xs text-muted-foreground">{order.actors?.[0]?.ActorName || 'N/A'}</p></div><Badge variant={statusMap[order.status || ''] || "secondary"}>{order.status || 'N/A'}</Badge></div>
+                  <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground"><span>{new Date(order.created_at).toLocaleDateString()}</span><Button asChild variant="outline" size="sm"><Link to={`/order/${order.id}`}>View order <ArrowRight className="ml-1 h-3 w-3" /></Link></Button></div>
+                </div>
+              )) : <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">You have not placed any orders yet.</p>}
+            </div>
+            <div className="hidden overflow-x-auto md:block"><Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Order ID</TableHead>
@@ -248,7 +256,7 @@ const ClientDashboardPage = () => {
                   </TableRow>
                 )}
               </TableBody>
-            </Table>
+            </Table></div>
           </CardContent>
         </Card>
         

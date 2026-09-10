@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   ToggleLeft,
   ToggleRight,
-  Edit,
   XIcon,
   Check,
   Briefcase,
@@ -284,9 +283,42 @@ const AdminActorListPage: React.FC = () => {
           </p>
         )}
 
-        <div className="bg-card rounded-lg border overflow-x-auto">
+        <div className="space-y-3 md:hidden">
+          {actors.map((actor) => (
+            <article key={actor.id} className="rounded-2xl border bg-card p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate font-semibold">{actor.ActorName}</h2>
+                  <p className="truncate text-xs text-muted-foreground">{actor.ActorEmail || 'No email'} · {actor.country || 'Unknown country'}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${actor.IsActive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'}`}>{actor.IsActive ? 'Active' : 'Inactive'}</span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-xl bg-muted/40 p-2"><span className="block text-muted-foreground">Agency</span><strong>{actor.marketplace_status || 'None'}</strong></div>
+                <div className="rounded-xl bg-muted/40 p-2"><span className="block text-muted-foreground">Direct pay</span><strong>{actor.direct_payment_enabled ? 'Enabled' : actor.direct_payment_requested ? 'Pending' : 'Disabled'}</strong></div>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {actor.marketplace_status === 'pending' && <>
+                  <button onClick={() => handleApproveMarketplace(actor.id)} className="rounded-lg bg-amber-500/15 px-3 py-2 text-xs font-semibold text-amber-700">Approve agency</button>
+                  <button onClick={() => handleRejectMarketplace(actor.id)} className="rounded-lg bg-muted px-3 py-2 text-xs font-semibold text-muted-foreground">Reject</button>
+                </>}
+                {actor.direct_payment_requested && actor.marketplace_status === 'approved' && <>
+                  <button onClick={() => handleApproveRequest(actor.id)} className="rounded-lg bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-700">Approve pay</button>
+                  <button onClick={() => handleRejectRequest(actor.id)} className="rounded-lg bg-red-500/15 px-3 py-2 text-xs font-semibold text-red-700">Reject pay</button>
+                </>}
+                {!actor.direct_payment_requested && actor.marketplace_status !== 'pending' && <>
+                  <button onClick={() => handleToggleActiveStatus(actor.id, actor.IsActive)} className="rounded-lg bg-primary/10 px-3 py-2 text-xs font-semibold text-primary">{actor.IsActive ? 'Deactivate' : 'Activate'}</button>
+                  {actor.role !== 'admin' && <button onClick={() => handleDeleteActor(actor)} className="rounded-lg bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">Delete</button>}
+                </>}
+              </div>
+            </article>
+          ))}
+          {actors.length === 0 && !loading && <p className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">No actors found.</p>}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-lg border bg-card md:block">
           <table className="w-full text-left min-w-[1000px]">
-            <thead className="bg-slate-700 text-xs uppercase text-muted-foreground">
+            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="p-4">Name / Country</th>
                 <th className="p-4">Role</th>
@@ -400,12 +432,6 @@ const AdminActorListPage: React.FC = () => {
                     {!actor.direct_payment_requested &&
                       actor.marketplace_status !== "pending" && (
                         <>
-                          <button
-                            className="text-xs text-blue-400 hover:underline inline-flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed mr-3"
-                            title="Edit Actor (Not Implemented)"
-                          >
-                            <Edit size={12} /> Edit
-                          </button>
                           <button
                             onClick={() =>
                               handleToggleActiveStatus(actor.id, actor.IsActive)

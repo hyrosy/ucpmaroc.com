@@ -386,9 +386,9 @@ export default function CouponsPage() {
                       {coupon.times_used} {coupon.usage_limit ? `/ ${coupon.usage_limit}` : 'uses'}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleDuplicate(coupon)} title="Duplicate"><Copy className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" onClick={() => initForm(coupon)}><Edit className="w-4 h-4" /></Button>
-                      <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(coupon.id)}><Trash2 className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Duplicate ${coupon.code}`} onClick={() => handleDuplicate(coupon)} title="Duplicate"><Copy className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Edit ${coupon.code}`} onClick={() => initForm(coupon)}><Edit className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="sm" aria-label={`Delete ${coupon.code}`} className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(coupon.id)}><Trash2 className="w-4 h-4" /></Button>
                     </td>
                   </tr>
                 )})}

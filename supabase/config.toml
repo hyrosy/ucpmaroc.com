@@ -60,6 +60,16 @@ enabled = true
 verify_jwt = true
 entrypoint = "./functions/store-realtime-session/index.ts"
 
+[functions.store-voice-note]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/store-voice-note/index.ts"
+
+[functions.store-voice-agent-transfer]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/store-voice-agent-transfer/index.ts"
+
 [functions.admin-delete-account]
 verify_jwt = true
 import_map = "./functions/admin-delete-account/deno.json"

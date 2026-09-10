@@ -805,8 +805,9 @@ const DashboardDemos: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label={`Delete script demo ${demo.title}`}
                         onClick={() => handleScriptDelete(demo.id)}
-                        className="absolute  top-2  right-2  text-destructive  hover:text-destructive  opacity-0  group-hover:opacity-100  transition-opacity"
+                        className="absolute  top-2  right-2  text-destructive  hover:text-destructive  opacity-0  group-hover:opacity-100  focus-visible:opacity-100  transition-opacity"
                       >
                                               <Trash2 size={16} />             
                              {" "}

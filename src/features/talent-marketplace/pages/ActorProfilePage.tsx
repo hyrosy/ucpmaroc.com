@@ -549,6 +549,13 @@ const handleMessageActor = async () => {
                 className="w-14 h-14 rounded-full  flex items-center justify-center cursor-pointer hover:opacity-90 transition-opacity shadow-lg"
                 role="button"
                 tabIndex={0}
+                                aria-label={isPlaying ? "Pause demo" : "Play demo"}
+                                onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                        event.preventDefault();
+                                        handlePlayPause();
+                                    }
+                                }}
                 >
                     {isPlaying ? (
                     <Pause size={28} className="text-primary-foreground" fill="foreground" />
@@ -561,7 +568,8 @@ const handleMessageActor = async () => {
                       Get a Quote
                   </Button>
                   <Button onClick={handleShare} size="lg" variant="outline" className="rounded-full">
-                      <Share2 size={18} />
+                      <Share2 size={18} aria-hidden="true" />
+                      <span className="sr-only">Share profile</span>
                   </Button>
                   <Button onClick={handleToggleFollow} size="lg" variant={isFollowing ? 'default' : 'outline'} className="rounded-full">
                       {isFollowing ? 'Following' : 'Follow'}

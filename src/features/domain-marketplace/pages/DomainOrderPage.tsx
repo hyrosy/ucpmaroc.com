@@ -5,9 +5,11 @@ import { PDFDownloadLink } from '@react-pdf/renderer';
 import { ContractDocument } from '../components/ContractPDF';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, PenTool, Server, Download, AlertCircle } from 'lucide-react';
 import SignatureCanvas from 'react-signature-canvas'; 
+import { cn } from "@/lib/utils";
 
 export default function DomainOrderPage() {
   const { id } = useParams();
@@ -19,6 +21,8 @@ export default function DomainOrderPage() {
   const [ns1, setNs1] = useState('');
   const [ns2, setNs2] = useState('');
   const [savingNs, setSavingNs] = useState(false);
+  const [signatureStatus, setSignatureStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [nsStatus, setNsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const sigPad = useRef<any>({});
 
   useEffect(() => {
@@ -40,31 +44,42 @@ export default function DomainOrderPage() {
   };
 
   const handleSaveSignature = async () => {
-      if (sigPad.current.isEmpty()) return alert("Please sign first.");
+      if (sigPad.current.isEmpty()) {
+        setSignatureStatus({ type: "error", message: "Please sign first." });
+        return;
+      }
       const sigData = sigPad.current.toDataURL();
       
       const { error } = await supabase.from('store_orders').update({ signature_url: sigData }).eq('id', id);
       if (!error) {
-          alert("Signature Saved!");
+          setSignatureStatus({ type: "success", message: "Signature saved!" });
           fetchOrder();
+      } else {
+          setSignatureStatus({ type: "error", message: "Failed to save signature: " + error.message });
       }
   };
 
   const handleSaveNameservers = async () => {
-      if (!ns1 || !ns2) return alert("Please enter both nameservers.");
+      if (!ns1 || !ns2) {
+        setNsStatus({ type: "error", message: "Please enter both nameservers." });
+        return;
+      }
       setSavingNs(true);
+      setNsStatus(null);
       const { error } = await supabase.from('store_orders').update({
           nameservers: { ns1, ns2 }
       }).eq('id', id);
       
       if (!error) {
-          alert("Nameservers Updated! We will start propagation shortly.");
+          setNsStatus({ type: "success", message: "Nameservers updated! We will start propagation shortly." });
           fetchOrder();
+      } else {
+          setNsStatus({ type: "error", message: "Failed to update nameservers: " + error.message });
       }
       setSavingNs(false);
   };
 
-  if (loading) return <div className="p-20 text-center">Loading Order...</div>;
+    if (loading) return <div className="flex min-h-[50vh] items-center justify-center p-8 text-center text-muted-foreground">Loading order details...</div>;
 
   const isSigned = !!order?.signature_url;
   const hasNameservers = !!order?.nameservers;
@@ -77,7 +92,7 @@ export default function DomainOrderPage() {
         <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 text-center">
             <div className="flex justify-center mb-2"><CheckCircle2 className="w-10 h-10 text-green-500"/></div>
             <h1 className="text-2xl font-bold text-green-500">Payment Successful!</h1>
-            <p className="text-slate-500">You have secured <span className="font-bold">{domain?.name}</span>.</p>
+            <p className="text-muted-foreground">You have secured <span className="font-bold">{domain?.name}</span>.</p>
         </div>
 
         {/* STEP 1: SIGNATURE (Only if not signed) */}
@@ -89,7 +104,7 @@ export default function DomainOrderPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-slate-500 mb-4">Please sign below to finalize the lease/sale agreement.</p>
+                    <p className="text-sm text-muted-foreground mb-4">Please sign below to finalize the lease/sale agreement.</p>
                     <div className="border-2 border-dashed border-slate-300 rounded-lg bg-white overflow-hidden mb-4">
                         <SignatureCanvas 
                             penColor="black"
@@ -97,6 +112,11 @@ export default function DomainOrderPage() {
                             ref={sigPad}
                         />
                     </div>
+                    {signatureStatus && (
+                      <p role="status" className={cn("text-sm font-medium mb-3", signatureStatus.type === "error" ? "text-destructive" : "text-emerald-600")}>
+                        {signatureStatus.message}
+                      </p>
+                    )}
                     <Button onClick={handleSaveSignature} className="w-full">Save & Sign Contract</Button>
                     <Button variant="ghost" size="sm" onClick={() => sigPad.current.clear()} className="mt-2 text-xs text-red-500">Clear</Button>
                 </CardContent>
@@ -112,13 +132,18 @@ export default function DomainOrderPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-slate-500 mb-4">
+                    <p className="text-sm text-muted-foreground mb-4">
                         Where should we point this domain? Enter your hosting nameservers.
                     </p>
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                        <Input placeholder="ns1.hosting.com" value={ns1} onChange={e => setNs1(e.target.value)} />
-                        <Input placeholder="ns2.hosting.com" value={ns2} onChange={e => setNs2(e.target.value)} />
+                    <div className="grid grid-cols-1 gap-4 mb-4 sm:grid-cols-2">
+                        <div className="space-y-2"><Label htmlFor="nameserver-primary">Primary nameserver</Label><Input id="nameserver-primary" placeholder="ns1.hosting.com" value={ns1} onChange={e => setNs1(e.target.value)} /></div>
+                        <div className="space-y-2"><Label htmlFor="nameserver-secondary">Secondary nameserver</Label><Input id="nameserver-secondary" placeholder="ns2.hosting.com" value={ns2} onChange={e => setNs2(e.target.value)} /></div>
                     </div>
+                    {nsStatus && (
+                      <p role="status" className={cn("text-sm font-medium mb-3", nsStatus.type === "error" ? "text-destructive" : "text-emerald-600")}>
+                        {nsStatus.message}
+                      </p>
+                    )}
                     <Button onClick={handleSaveNameservers} disabled={savingNs} variant={hasNameservers ? "outline" : "default"}>
                         {savingNs ? "Saving..." : hasNameservers ? "Update Nameservers" : "Save Configuration"}
                     </Button>

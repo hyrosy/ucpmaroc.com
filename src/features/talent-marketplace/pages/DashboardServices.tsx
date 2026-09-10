@@ -86,13 +86,14 @@ const DashboardServices: React.FC<{ initialServiceId?: MarketplaceServiceId }> =
           <div className='space-y-3 rounded-xl border p-4'>
             <div className='flex items-center gap-2 font-semibold'><ImagePlus className='h-5 w-5 text-primary' /> Gallery images</div>
             <Input type='file' accept='image/*' multiple disabled={uploading} onChange={(event) => uploadFiles(event, 'image')} />
-            <div className='grid grid-cols-3 gap-2'>
+            <div className='grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4'>
               {selectedListing.media_assets.map((asset, index) => (
                 <div key={asset.url} className='relative group'>
                   <img src={asset.url} alt='Service gallery' className='aspect-square w-full rounded-lg object-cover' />
                   <span className='absolute bottom-1 left-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white'>{asset.status}</span>
                   <button 
                     type="button" 
+                    aria-label={`Remove gallery image ${index + 1}`}
                     onClick={() => {
                       const newAssets = [...selectedListing.media_assets];
                       newAssets.splice(index, 1);
@@ -113,7 +114,7 @@ const DashboardServices: React.FC<{ initialServiceId?: MarketplaceServiceId }> =
             {selectedListing.audio_urls.map((url, index) => (
               <div key={url} className="flex items-center gap-2">
                 <audio controls src={url} className='w-full' />
-                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 shrink-0" onClick={() => {
+                <Button variant="ghost" size="icon" aria-label={`Remove audio preview ${index + 1}`} className="text-destructive hover:bg-destructive/10 shrink-0" onClick={() => {
                   const newUrls = [...selectedListing.audio_urls];
                   newUrls.splice(index, 1);
                   updateSelected({ audio_urls: newUrls });
@@ -131,7 +132,7 @@ const DashboardServices: React.FC<{ initialServiceId?: MarketplaceServiceId }> =
           </div>
           {selectedListing.offers.map((offer, index) => (
             <div key={index} className='grid gap-3 rounded-xl border p-4 md:grid-cols-2 relative group'>
-              <Button variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
+              <Button variant="ghost" size="icon" aria-label={`Remove offer ${index + 1}`} className="absolute top-2 right-2 text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => {
                 const newOffers = [...selectedListing.offers];
                 newOffers.splice(index, 1);
                 updateSelected({ offers: newOffers });

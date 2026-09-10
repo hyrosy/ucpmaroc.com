@@ -496,7 +496,7 @@ export default function ThemeStudioPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] w-full bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-50 overflow-hidden">
       {/* --- STUDIO TOPBAR --- */}
-      <div className="h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 flex items-center justify-between px-4 shrink-0 shadow-sm z-10 relative backdrop-blur-md">
+      <div className="min-h-14 border-b border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 flex flex-wrap items-center justify-between gap-2 px-2 py-2 sm:px-4 shrink-0 shadow-sm z-10 relative backdrop-blur-md">
         <div className="flex items-center gap-3">
           <UIButton
             variant="ghost"
@@ -561,12 +561,12 @@ export default function ThemeStudioPage() {
             )}
           </div>
           
-          <UIButton variant="ghost" size="sm" className="h-8 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setIsDocsOpen(true)}>
-            <BookOpen size={14} className="mr-2" /> SDK Docs
+          <UIButton variant="ghost" size="sm" className="h-8 px-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => setIsDocsOpen(true)} aria-label="Open SDK documentation">
+            <BookOpen size={14} className="sm:mr-2" /> <span className="hidden sm:inline">SDK Docs</span>
           </UIButton>
 
-          <UIButton size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-            <UploadCloud size={14} className="mr-2" /> Publish Request
+          <UIButton size="sm" className="h-8 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold" aria-label="Publish theme request">
+            <UploadCloud size={14} className="sm:mr-2" /> <span className="hidden sm:inline">Publish Request</span>
           </UIButton>
         </div>
       </div>
@@ -588,7 +588,8 @@ export default function ThemeStudioPage() {
               const isUntouched = files[filename] === INITIAL_FILES[filename];
 
               return (
-              <div
+              <button
+                type="button"
                 key={filename}
                 onClick={() => handleOpenFile(filename)}
                 className={cn(
@@ -605,7 +606,7 @@ export default function ThemeStudioPage() {
                 {isUntouched && (
                   <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 text-[8px] px-1 py-0 border-none h-4">NEW</Badge>
                 )}
-              </div>
+              </button>
             )})}
           </div>
         </div>
@@ -615,7 +616,8 @@ export default function ThemeStudioPage() {
           {/* TABS BAR */}
           <div className="flex bg-zinc-100 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 overflow-x-auto no-scrollbar shrink-0">
             {openFiles.map((filename) => (
-              <div
+              <button
+                type="button"
                 key={filename}
                 onClick={() => handleOpenFile(filename)}
                 className={cn(
@@ -627,7 +629,9 @@ export default function ThemeStudioPage() {
               >
                 <FileCode2 size={14} className={activeFile === filename ? "text-indigo-500 dark:text-indigo-400" : "text-zinc-400 dark:text-zinc-500"} />
                 {filename}
-                <button
+                <span
+                  role="button"
+                  aria-label={`Close ${filename}`}
                   onClick={(e) => handleCloseFile(e, filename)}
                   className={cn(
                     "ml-1 rounded-md hover:bg-zinc-200 dark:hover:bg-zinc-700/50 p-0.5 opacity-0 group-hover:opacity-100 transition-opacity",
@@ -635,8 +639,8 @@ export default function ThemeStudioPage() {
                   )}
                 >
                   <X size={14} />
-                </button>
-              </div>
+                </span>
+              </button>
             ))}
             {openFiles.length === 0 && (
               <div className="h-10 flex items-center px-4 text-xs font-mono text-zinc-600">No open files</div>

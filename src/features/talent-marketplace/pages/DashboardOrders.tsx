@@ -264,7 +264,7 @@ const DashboardOrders: React.FC = () => {
           </Tabs>
 
           <div className="mt-6 grid gap-3 md:grid-cols-[1fr_180px_200px]">
-            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search client, order, or service" className="pl-9" /></div>
+            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="Search orders" value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search client, order, or service" className="pl-9" /></div>
             <Select value={serviceFilter} onValueChange={setServiceFilter}><SelectTrigger><SelectValue placeholder="All services" /></SelectTrigger><SelectContent><SelectItem value="all">All services</SelectItem>{serviceTypes.map((service) => <SelectItem key={service} value={service}>{serviceLabels[service] || service.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger><SelectValue placeholder="All statuses" /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem>{Array.from(new Set(orders.map((order) => order.status))).map((status) => <SelectItem key={status} value={status}>{statusLabels[status] || status}</SelectItem>)}</SelectContent></Select>
           </div>
@@ -282,7 +282,7 @@ const DashboardOrders: React.FC = () => {
                   onClick={() => setSelectedOrder(order)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") setSelectedOrder(order); }}
+                  onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedOrder(order); } }}
                   className={`group cursor-pointer border p-4 transition-all hover:border-primary/50 hover:bg-accent hover:shadow-md ${needsActionStatuses.includes(order.status) ? "border-l-4 border-l-primary" : ""}`}
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

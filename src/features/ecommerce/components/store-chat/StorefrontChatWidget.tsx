@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, X, Send, Bot, Sparkles, RefreshCw, Mic, Square, Phone, PhoneOff } from 'lucide-react';
+import { MessageCircle, X, Send, Bot, Sparkles, RefreshCw, Mic, Square, PhoneOff, AudioLines, ChevronDown, ChevronUp } from 'lucide-react';
 import { createVisitorSupabase, supabase } from '@/supabaseClient';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,11 +35,6 @@ interface StorefrontChatWidgetProps {
   isInline?: boolean;
 }
 
-interface LiveTranscriptLine {
-  role: 'visitor' | 'assistant';
-  text: string;
-}
-
 interface StoreMessage {
   id: string;
   conversation_id: string | null;
@@ -69,8 +64,11 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [liveCallStatus, setLiveCallStatus] = useState<'idle' | 'connecting' | 'active'>('idle');
   const [liveCallError, setLiveCallError] = useState('');
+  const [liveCallSeconds, setLiveCallSeconds] = useState(0);
   const [voiceError, setVoiceError] = useState('');
-  const [liveTranscript, setLiveTranscript] = useState<LiveTranscriptLine[]>([]);
+  const [voiceUiMinimized, setVoiceUiMinimized] = useState(false);
+  const [liveAssistantSpeaking, setLiveAssistantSpeaking] = useState(false);
+  const [liveVisitorSpeaking, setLiveVisitorSpeaking] = useState(false);
   const addItem = useCartStore(state => state.addItem);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -84,6 +82,9 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
   const conversationLookupRef = useRef<Promise<string | null> | null>(null);
   const visitorSupabaseRef = useRef(supabase);
   const aiTypingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastVisitorActivityRef = useRef(Date.now());
+  const inactivityPromptSentRef = useRef(false);
+  const inactivityPromptAtRef = useRef<number | null>(null);
 
   const startAiTyping = useCallback(() => {
     if (!aiEnabled) return;
@@ -144,7 +145,9 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
           formData.append('portfolio_id', portfolioId);
           formData.append('audio', audio, 'voice-note.webm');
           const { data, error } = await supabase.functions.invoke('store-voice-transcribe', { body: formData });
-          if (error || !data?.text) throw error || new Error('No transcription returned');
+          if (error) throw new Error(error.message || 'Voice transcription request failed');
+          if (data?.error) throw new Error(data.code ? `${data.error} (${data.code})` : data.error);
+          if (!data?.text) throw new Error('Transcription returned no text. Please try a longer recording.');
           await handleSendDirect(data.text);
         } catch (error) {
           console.error('Voice transcription failed:', error);
@@ -175,17 +178,55 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
     livePeerConnectionRef.current = null;
     liveStreamRef.current = null;
     setLiveCallStatus('idle');
+    setLiveCallSeconds(0);
+    setLiveAssistantSpeaking(false);
+    setLiveVisitorSpeaking(false);
+    setVoiceUiMinimized(false);
   }, []);
+
+  useEffect(() => {
+    if (liveCallStatus === 'idle') return;
+    const timer = window.setInterval(() => setLiveCallSeconds(seconds => seconds + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [liveCallStatus]);
+
+  useEffect(() => {
+    if (liveCallStatus !== 'active') return;
+    lastVisitorActivityRef.current = Date.now();
+    inactivityPromptSentRef.current = false;
+    inactivityPromptAtRef.current = null;
+    const interval = window.setInterval(() => {
+      const channel = liveDataChannelRef.current;
+      if (!channel || channel.readyState !== 'open') return;
+      const now = Date.now();
+      if (!inactivityPromptSentRef.current && now - lastVisitorActivityRef.current > 60_000) {
+        channel.send(JSON.stringify({ type: 'response.create', response: { instructions: 'The visitor has been quiet for a while. Warmly ask in one short sentence if they are still there.' } }));
+        inactivityPromptSentRef.current = true;
+        inactivityPromptAtRef.current = now;
+      } else if (inactivityPromptSentRef.current && inactivityPromptAtRef.current && now - inactivityPromptAtRef.current > 20_000) {
+        stopLiveVoice();
+      }
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [liveCallStatus, stopLiveVoice]);
+
+  const closeChat = useCallback(() => {
+    if (liveCallStatus !== 'idle') stopLiveVoice();
+    setIsOpen(false);
+  }, [liveCallStatus, stopLiveVoice]);
 
   const startLiveVoice = async () => {
     if (!liveVoiceEnabled || liveCallStatus !== 'idle') return;
     setLiveCallError('');
     setVoiceError('');
+    setVoiceUiMinimized(false);
     setLiveCallStatus('connecting');
     try {
+      const activeConvId = await getOrCreateConversation();
       const { data: session, error: sessionError } = await supabase.functions.invoke('store-realtime-session', { body: { portfolio_id: portfolioId } });
-      const ephemeralKey = session?.client_secret?.value;
-      if (sessionError || !ephemeralKey) throw sessionError || new Error('Voice session unavailable');
+      const ephemeralKey = session?.value ?? session?.client_secret?.value ?? session?.session?.client_secret?.value;
+      const responseError = session?.error || session?.reason || session?.code;
+      if (sessionError || !ephemeralKey) throw sessionError || new Error(responseError ? `${session.error || 'Voice session unavailable'}${session.code ? ` (${session.code})` : ''}` : 'Voice session unavailable');
 
       const peer = new RTCPeerConnection();
       const audio = new Audio();
@@ -197,41 +238,64 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
       const microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
       microphone.getTracks().forEach(track => peer.addTrack(track, microphone));
       const channel = peer.createDataChannel('oai-events');
+      channel.onopen = () => {
+        channel.send(JSON.stringify({ type: 'response.create', response: { instructions: 'Begin the call now with the greeting described in your setup instructions.' } }));
+      };
       channel.onmessage = event => {
-        let payload: { type?: string; delta?: string; transcript?: string };
+        let payload: { type?: string; call_id?: string; name?: string; arguments?: string };
         try {
-          payload = JSON.parse(event.data) as { type?: string; delta?: string; transcript?: string };
+          payload = JSON.parse(event.data) as { type?: string; call_id?: string; name?: string; arguments?: string };
         } catch {
           return;
         }
-        if (payload.type === 'conversation.item.input_audio_transcription.completed' && payload.transcript) {
-          setLiveTranscript(prev => [...prev, { role: 'visitor', text: payload.transcript || '' }]);
+        if (payload.type === 'input_audio_buffer.speech_started') {
+          setLiveVisitorSpeaking(true);
+          lastVisitorActivityRef.current = Date.now();
+          inactivityPromptSentRef.current = false;
+          inactivityPromptAtRef.current = null;
         }
-        if (payload.type === 'response.audio_transcript.delta' && payload.delta) {
-          setLiveTranscript(prev => {
-            const last = prev[prev.length - 1];
-            if (last?.role === 'assistant') return [...prev.slice(0, -1), { ...last, text: last.text + payload.delta }];
-            return [...prev, { role: 'assistant', text: payload.delta || '' }];
-          });
+        if (payload.type === 'input_audio_buffer.speech_stopped') setLiveVisitorSpeaking(false);
+        if (payload.type === 'response.audio_transcript.delta') setLiveAssistantSpeaking(true);
+        if (payload.type === 'response.audio_transcript.done' || payload.type === 'response.done') setLiveAssistantSpeaking(false);
+        if (payload.type === 'response.function_call_arguments.done' && payload.call_id) {
+          if (payload.name === 'share_note') {
+            let note = '';
+            try {
+              note = String((JSON.parse(payload.arguments || '{}') as { note?: string }).note || '').trim();
+            } catch {
+              note = '';
+            }
+            if (note) {
+              supabase.functions.invoke('store-voice-note', { body: { portfolio_id: portfolioId, conversation_id: activeConvId, note } }).catch(() => {});
+            }
+          } else if (payload.name === 'request_contact_form') {
+            supabase.functions.invoke('store-voice-note', { body: { portfolio_id: portfolioId, conversation_id: activeConvId, note: "Let's get your contact info so our team can follow up. [CONTACT_FORM]" } }).catch(() => {});
+          } else if (payload.name === 'transfer_to_agent') {
+            supabase.functions.invoke('store-voice-agent-transfer', { body: { portfolio_id: portfolioId, conversation_id: activeConvId } }).catch(() => {});
+          }
+          channel.send(JSON.stringify({ type: 'conversation.item.create', item: { type: 'function_call_output', call_id: payload.call_id, output: '{"ok":true}' } }));
+          channel.send(JSON.stringify({ type: 'response.create' }));
         }
       };
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
-      const answer = await fetch('https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview', {
+      const answer = await fetch('https://api.openai.com/v1/realtime/calls', {
         method: 'POST',
         body: offer.sdp,
         headers: { Authorization: `Bearer ${ephemeralKey}`, 'Content-Type': 'application/sdp' },
       });
-      if (!answer.ok) throw new Error('Could not connect to live voice');
+      if (!answer.ok) {
+        const details = await answer.text();
+        throw new Error(details || 'Could not connect to live voice');
+      }
       await peer.setRemoteDescription({ type: 'answer', sdp: await answer.text() });
       livePeerConnectionRef.current = peer;
       liveDataChannelRef.current = channel;
       liveStreamRef.current = microphone;
-      setLiveTranscript([]);
       setLiveCallStatus('active');
     } catch (error) {
       stopLiveVoice();
-      setLiveCallError(error instanceof Error ? error.message : 'Live voice could not start');
+      setLiveCallError(error instanceof Error ? error.message : 'Live voice could not start. Check the Bot+ configuration.');
     }
   };
 
@@ -339,11 +403,11 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
+      if (event.key === 'Escape') closeChat();
     };
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
-  }, [isOpen]);
+  }, [isOpen, closeChat]);
 
   // 3. Scroll to bottom safely
   useEffect(() => {
@@ -436,7 +500,39 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
   return (
     <div className={cn(isInline ? "relative flex flex-col items-end w-full" : `fixed bottom-6 z-50 flex flex-col items-end ${launcherPosition === 'left' ? 'left-6' : 'right-6'}`)}>
       {isOpen && (
-        <div role="dialog" aria-modal="true" aria-label={`${headerTitle || storeName} chat`} className={cn("mb-4 flex max-h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl transition-all", isInline ? "h-[450px] w-full max-w-[380px]" : "h-[min(450px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-2rem))]")}>
+        <div role="dialog" aria-modal="true" aria-label={`${headerTitle || storeName} chat`} className={cn("relative mb-4 flex max-h-[calc(100dvh-6rem)] flex-col overflow-hidden rounded-2xl border bg-background shadow-2xl transition-all", isInline ? "h-[450px] w-full max-w-[380px]" : "h-[min(450px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-2rem))]")}>
+          {liveCallStatus !== 'idle' && !voiceUiMinimized && (
+            <div className="absolute inset-0 z-30 flex flex-col items-center justify-between bg-gradient-to-b from-slate-900 via-slate-950 to-black px-6 py-8 text-white">
+              <div className="flex w-full items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-medium text-white/70">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {liveCallStatus === 'connecting' ? 'Connecting…' : `${String(Math.floor(liveCallSeconds / 60)).padStart(2, '0')}:${String(liveCallSeconds % 60).padStart(2, '0')}`}
+                </div>
+                <Button type="button" variant="ghost" size="icon" aria-label="Minimize live voice" title="Minimize to view chat" className="text-white hover:bg-white/10" onClick={() => setVoiceUiMinimized(true)}>
+                  <ChevronDown className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <div className="flex flex-1 flex-col items-center justify-center gap-6">
+                <div className="relative flex h-40 w-40 items-center justify-center">
+                  <span className={cn("absolute inset-0 rounded-full bg-amber-500/30 blur-2xl transition-all duration-300", (liveAssistantSpeaking || liveVisitorSpeaking) && "scale-125 bg-amber-400/50")} />
+                  <span className={cn("absolute inset-4 rounded-full bg-amber-500/40 transition-all duration-300", liveAssistantSpeaking && "animate-pulse scale-110", liveVisitorSpeaking && !liveAssistantSpeaking && "animate-pulse scale-105")} />
+                  <div className={cn("relative flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-xl transition-transform duration-300", (liveAssistantSpeaking || liveVisitorSpeaking) && "scale-110")}>
+                    <AudioLines className="h-9 w-9 text-white" />
+                  </div>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold">{liveCallStatus === 'connecting' ? 'Connecting to live voice…' : liveAssistantSpeaking ? `${botName} is speaking…` : liveVisitorSpeaking ? 'Listening…' : 'Ready when you are'}</p>
+                  <p className="mt-1 text-xs text-white/60">{liveCallStatus === 'connecting' ? 'Preparing your microphone' : "Speak naturally — I'll jot down anything worth a look"}</p>
+                </div>
+                {liveCallError && <p role="alert" className="max-w-xs text-center text-xs text-red-300">{liveCallError}</p>}
+              </div>
+
+              <Button type="button" size="lg" variant="destructive" onClick={stopLiveVoice} className="gap-2 rounded-full px-8 shadow-lg">
+                <PhoneOff className="h-4 w-4" /> End call
+              </Button>
+            </div>
+          )}
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-2.5 text-white" style={{ background: sendButtonColor }}>
             <div>
               <h3 className="flex items-center gap-2 text-sm font-semibold">{botName || headerTitle || storeName} {aiEnabled && <Bot className="h-3.5 w-3.5" />}</h3>
@@ -446,23 +542,29 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
               <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/20" onClick={handleResetChat} title="Restart Conversation">
                 <RefreshCw className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" aria-label="Close chat" title="Close chat" className="text-primary-foreground hover:bg-primary-foreground/20" onClick={() => setIsOpen(false)}>
+              <Button variant="ghost" size="icon" aria-label="Close chat" title="Close chat" className="text-primary-foreground hover:bg-primary-foreground/20" onClick={closeChat}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
           </div>
+          {liveCallStatus !== 'idle' && voiceUiMinimized && (
+            <div className="z-20 flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-foreground">
+              <button type="button" onClick={() => setVoiceUiMinimized(false)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-sm"><AudioLines className={cn("h-4 w-4", (liveAssistantSpeaking || liveVisitorSpeaking) && 'animate-pulse')} /></div>
+                <div className="min-w-0">
+                  <p className="truncate text-xs font-semibold">{liveCallStatus === 'connecting' ? 'Connecting to live voice…' : 'Live voice with ' + botName}</p>
+                  <p className="text-[10px] text-muted-foreground">{`${String(Math.floor(liveCallSeconds / 60)).padStart(2, '0')}:${String(liveCallSeconds % 60).padStart(2, '0')}`} · Tap to reopen</p>
+                </div>
+              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button type="button" variant="ghost" size="icon" aria-label="Expand live voice" title="Expand" className="h-8 w-8" onClick={() => setVoiceUiMinimized(false)}><ChevronUp className="h-4 w-4" /></Button>
+                <Button type="button" size="icon" variant="destructive" aria-label="End call" title="End call" className="h-8 w-8" onClick={stopLiveVoice}><PhoneOff className="h-3.5 w-3.5" /></Button>
+              </div>
+            </div>
+          )}
           <ScrollArea className="relative flex-1" style={{ backgroundColor: panelBackground, backgroundImage: panelGradient || (panelBackgroundImage ? `linear-gradient(rgba(248,250,252,.78), rgba(248,250,252,.78)), url(${panelBackgroundImage})` : patternStyle?.backgroundImage), backgroundSize: panelBackgroundImage ? 'cover' : patternStyle?.backgroundSize, backgroundPosition: 'center', ...(!panelBackgroundImage && !panelGradient ? patternStyle : {}) }}>
             <div className="space-y-4 p-4 pb-24">
-                {liveCallStatus !== 'idle' && (
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-foreground">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-semibold">{liveCallStatus === 'connecting' ? 'Connecting to live voice…' : 'Live voice active'}</span>
-                      <Button type="button" size="sm" variant="outline" onClick={stopLiveVoice}><PhoneOff className="mr-1.5 h-3.5 w-3.5" /> End</Button>
-                    </div>
-                    {liveTranscript.length > 0 && <div className="mt-2 max-h-24 space-y-1 overflow-y-auto text-muted-foreground">{liveTranscript.slice(-6).map((line, index) => <p key={`${line.role}-${index}`}><strong>{line.role === 'visitor' ? 'You' : botName}:</strong> {line.text}</p>)}</div>}
-                    {liveCallError && <p role="alert" className="mt-2 text-destructive">{liveCallError}</p>}
-                  </div>
-                )}
+                {liveCallError && liveCallStatus === 'idle' && <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">{liveCallError}</p>}
                 {voiceError && <div role="alert" className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive"><span>{voiceError}</span><button type="button" className="font-semibold underline" onClick={() => setVoiceError('')}>Dismiss</button></div>}
                 {messages.length === 0 && (
                    <div className="space-y-4">
@@ -521,25 +623,26 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
                           ))}
                         </div>
                       )}
-                      {showContactForm && (
-                        <form onSubmit={submitContactForm} className="mt-3 space-y-2 rounded-xl bg-white/15 p-3" noValidate>
-                          <p className="text-xs font-medium">Where should we reach you?</p>
+                      {showContactForm && isLastMessage && (
+                        <form onSubmit={submitContactForm} className="mt-3 space-y-2.5 rounded-2xl border border-white/20 bg-white/15 p-3.5 backdrop-blur-sm" noValidate>
+                          <p className="text-xs font-semibold">Where should we reach you?</p>
                           <div className="grid gap-2 sm:grid-cols-2">
                             <label className="sr-only" htmlFor={`chat-contact-name-${msg.id}`}>Your name</label>
-                            <Input id={`chat-contact-name-${msg.id}`} name="name" autoComplete="name" value={contactName} onChange={event => setContactName(event.target.value)} onBlur={() => setContactFormTouched(true)} placeholder="Your name" aria-label="Your name" className="h-9 bg-white text-slate-900" required />
+                            <Input id={`chat-contact-name-${msg.id}`} name="name" autoComplete="name" value={contactName} onChange={event => setContactName(event.target.value)} onBlur={() => setContactFormTouched(true)} placeholder="Your name" aria-label="Your name" className="h-9 rounded-lg bg-white text-slate-900" required />
                             <label className="sr-only" htmlFor={`chat-contact-email-${msg.id}`}>Email address</label>
-                            <Input id={`chat-contact-email-${msg.id}`} name="email" type="email" autoComplete="email" value={contactEmail} onChange={event => setContactEmail(event.target.value)} onBlur={() => setContactFormTouched(true)} placeholder="Email address" aria-label="Email address" className="h-9 bg-white text-slate-900" required />
+                            <Input id={`chat-contact-email-${msg.id}`} name="email" type="email" autoComplete="email" value={contactEmail} onChange={event => setContactEmail(event.target.value)} onBlur={() => setContactFormTouched(true)} placeholder="Email address" aria-label="Email address" className="h-9 rounded-lg bg-white text-slate-900" required />
                           </div>
                           {contactFormTouched && (!contactName.trim() || !contactEmail.includes('@')) && <p className="text-[11px] text-white/80">Enter your name and a valid email.</p>}
                           {contactSubmitError && <p role="alert" className="text-[11px] text-white/90">{contactSubmitError}</p>}
-                          <Button type="submit" size="sm" disabled={contactSubmitting || !contactName.trim() || !contactEmail.includes('@')} className="w-full bg-white text-slate-900 hover:bg-white/90">{contactSubmitting ? 'Sending...' : 'Continue'}</Button>
+                          <Button type="submit" size="sm" disabled={contactSubmitting || !contactName.trim() || !contactEmail.includes('@')} className="w-full rounded-lg bg-white font-semibold text-slate-900 hover:bg-white/90">{contactSubmitting ? 'Sending...' : 'Continue'}</Button>
                         </form>
                       )}
-                      {showOrderForm && (
-                        <form onSubmit={submitOrderForm} className="mt-3 space-y-2 rounded-xl bg-white/15 p-3">
-                          <Input type="email" value={orderEmail} onChange={event => setOrderEmail(event.target.value)} placeholder="Order email" aria-label="Order email" className="h-9 bg-white text-slate-900" required />
-                          <Input value={orderNumber} onChange={event => setOrderNumber(event.target.value)} placeholder="Order number" aria-label="Order number" className="h-9 bg-white text-slate-900" required />
-                          <Button type="submit" size="sm" className="w-full bg-white text-slate-900 hover:bg-white/90">Check order status</Button>
+                      {showOrderForm && isLastMessage && (
+                        <form onSubmit={submitOrderForm} className="mt-3 space-y-2.5 rounded-2xl border border-white/20 bg-white/15 p-3.5 backdrop-blur-sm">
+                          <p className="text-xs font-semibold">Look up your order</p>
+                          <Input type="email" value={orderEmail} onChange={event => setOrderEmail(event.target.value)} placeholder="Order email" aria-label="Order email" className="h-9 rounded-lg bg-white text-slate-900" required />
+                          <Input value={orderNumber} onChange={event => setOrderNumber(event.target.value)} placeholder="Order number" aria-label="Order number" className="h-9 rounded-lg bg-white text-slate-900" required />
+                          <Button type="submit" size="sm" className="w-full rounded-lg bg-white font-semibold text-slate-900 hover:bg-white/90">Check order status</Button>
                         </form>
                       )}
                       {showApproveBtn && msg.sender_type === 'ai_bot' && isLastMessage && (
@@ -571,14 +674,14 @@ const StorefrontChatWidget: React.FC<StorefrontChatWidgetProps> = ({ portfolioId
           </ScrollArea>
           <form onSubmit={handleSend} className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-1.5 rounded-2xl border border-border/60 bg-background/90 p-1.5 shadow-lg backdrop-blur-xl">
             {voiceMessagesEnabled && <Button type="button" variant={isRecording ? 'destructive' : 'outline'} size="icon" onClick={isRecording ? stopVoiceRecording : startVoiceRecording} disabled={isTranscribing || liveCallStatus !== 'idle'} aria-label={isRecording ? 'Stop voice recording' : 'Record voice message'} title={isTranscribing ? 'Transcribing voice message' : isRecording ? 'Stop recording' : 'Record voice message'}>{isTranscribing ? <Bot className="h-4 w-4 animate-pulse" /> : isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}</Button>}
-            {liveVoiceEnabled && <Button type="button" variant={liveCallStatus === 'active' ? 'destructive' : 'outline'} size="icon" onClick={liveCallStatus === 'idle' ? startLiveVoice : stopLiveVoice} disabled={isRecording || liveCallStatus === 'connecting'} aria-label={liveCallStatus === 'active' ? 'End live voice' : 'Start live voice'} title={liveCallStatus === 'active' ? 'End live voice' : 'Start live voice'}>{liveCallStatus === 'active' ? <PhoneOff className="h-4 w-4" /> : <Phone className="h-4 w-4" />}</Button>}
+            {liveVoiceEnabled && <Button type="button" variant={liveCallStatus !== 'idle' ? 'destructive' : 'outline'} size="icon" onClick={liveCallStatus === 'idle' ? startLiveVoice : stopLiveVoice} disabled={isRecording} aria-label={liveCallStatus !== 'idle' ? 'End live voice' : 'Start live voice conversation'} title={liveCallStatus !== 'idle' ? 'End live voice' : 'Start live voice conversation'}>{liveCallStatus !== 'idle' ? <PhoneOff className="h-4 w-4" /> : <AudioLines className="h-4 w-4" />}</Button>}
             <Input aria-label={inputPlaceholder} placeholder={inputPlaceholder} value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="h-10 flex-1 rounded-xl border-0 bg-transparent shadow-none focus-visible:ring-0" />
             <Button type="submit" size="icon" className="rounded-full shrink-0 text-white" style={{ backgroundColor: sendButtonColor }} disabled={!newMessage.trim() || !visitorReady} title={sendButtonLabel} aria-label={sendButtonLabel}><Send className="h-4 w-4" /></Button>
           </form>
         </div>
       )}
       <button 
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => isOpen ? closeChat() : setIsOpen(true)}
         aria-label={isOpen ? 'Close chat' : `Open ${headerTitle || storeName} chat`}
           className={cn(
           "relative h-14 w-14 flex items-center justify-center bg-transparent border-0 outline-none shadow-none cursor-pointer transition-transform hover:scale-110 z-50", 

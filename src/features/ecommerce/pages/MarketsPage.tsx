@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Loader2, Globe, ChevronDown, ChevronUp, Save, Map } from "lucide-react";
 import { SHIPPING_REGIONS, ALL_COUNTRIES_LIST } from "@/lib/countries";
+import { cn } from "@/lib/utils";
 
 export default function MarketsPage() {
   const { actorData, selectedSiteId, setSelectedSiteId } = useOutletContext<ActorDashboardContextType>();
@@ -16,6 +17,7 @@ export default function MarketsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [expandedRegions, setExpandedRegions] = useState<string[]>([]);
   const [allowedCountries, setAllowedCountries] = useState<string[]>([]);
+  const [saveStatus, setSaveStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   useEffect(() => {
     const fetchSites = async () => {
@@ -45,14 +47,15 @@ export default function MarketsPage() {
 
   const handleSave = async () => {
     setIsSaving(true);
+    setSaveStatus(null);
     const site = portfolios.find((p) => p.id === selectedSiteId);
     const newConfig = { ...site.theme_config, allowedCountries };
 
     const { error } = await supabase.from("portfolios").update({ theme_config: newConfig }).eq("id", selectedSiteId);
     if (error) {
-      alert("Failed to save markets: " + error.message);
+      setSaveStatus({ type: "error", message: "Failed to save markets: " + error.message });
     } else {
-      alert("Markets updated successfully!");
+      setSaveStatus({ type: "success", message: "Markets updated successfully!" });
       setPortfolios((prev) => prev.map((p) => (p.id === selectedSiteId ? { ...p, theme_config: newConfig } : p)));
     }
     setIsSaving(false);
@@ -90,6 +93,20 @@ export default function MarketsPage() {
           {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />} Save Markets
         </Button>
       </div>
+
+      {saveStatus && (
+        <div
+          role="status"
+          className={cn(
+            "rounded-xl border px-4 py-3 text-sm font-medium",
+            saveStatus.type === "success"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+              : "border-destructive/30 bg-destructive/10 text-destructive"
+          )}
+        >
+          {saveStatus.message}
+        </div>
+      )}
 
       <Card className="shadow-sm">
         <CardHeader>

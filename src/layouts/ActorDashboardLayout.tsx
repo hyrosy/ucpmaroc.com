@@ -287,6 +287,7 @@ const NAV_GROUPS = [
 
 const mobilePrimaryItems = [
   { to: "/dashboard", name: "Stats", icon: BarChart3 },
+  { to: "/dashboard/orders", name: "Orders", icon: Package },
   { to: "/dashboard/portfolio", name: "Editor", icon: LayoutTemplate },
   { to: "/dashboard/messages", name: "Inbox", icon: MessageSquare },
 ];
@@ -316,7 +317,7 @@ const ActorDashboardLayout = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const isMessagesPage = location.pathname.includes("/dashboard/messages");
+  const isMessagesPage = location.pathname.includes("/dashboard/messages") || location.pathname.includes("/dashboard/store-inbox");
   const isShopActive =
     location.pathname.includes("/products") ||
     location.pathname.includes("/collections");
@@ -430,7 +431,7 @@ const ActorDashboardLayout = () => {
   const isApprovedMarketplace = actorData.marketplace_status === "approved";
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 text-foreground flex flex-col antialiased">
+    <div className="min-h-screen bg-background text-foreground flex flex-col antialiased">
       <SubscriptionProvider actorId={actorData.id}>
         {/* --- GLOBAL TOP-UP MODAL --- */}
         <TopUpModal
@@ -576,7 +577,8 @@ const ActorDashboardLayout = () => {
             onMouseLeave={() => setIsSidebarHovered(false)}
             className={cn(
               "hidden md:flex flex-col fixed left-0 h-[calc(100vh-3.5rem)] border-r border-border/40 bg-background/80 backdrop-blur-xl z-40 transition-all duration-300 ease-in-out",
-              isCollapsed ? "w-[72px]" : "w-[260px]"
+              isCollapsed ? "w-[72px]" : "w-[260px]",
+              isPinnedCollapsed && isSidebarHovered && "shadow-2xl"
             )}
           >
             <nav className="flex-1 overflow-y-auto py-6 space-y-6 custom-scrollbar overflow-x-hidden">
@@ -788,9 +790,9 @@ const ActorDashboardLayout = () => {
           {/* ========================================== */}
           <main
             className={cn(
-              "flex-1 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
-              isCollapsed ? "md:ml-[72px]" : "md:ml-[260px]",
-              isMessagesPage ? "app-bottom-safe md:pb-0" : "app-bottom-safe md:pb-8"
+              "flex-1 min-w-0 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-background",
+              isPinnedCollapsed ? "md:ml-[72px]" : "md:ml-[260px]",
+              isMessagesPage ? "app-bottom-safe md:pb-0" : "app-bottom-safe pb-20 md:pb-8"
             )}
           >
         <Outlet context={{ actorData, role: "actor", selectedSiteId, setSelectedSiteId }} />

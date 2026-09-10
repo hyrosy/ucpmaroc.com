@@ -160,9 +160,9 @@ export default function FormsPage() {
                       <td className="px-6 py-4 text-muted-foreground">{port?.site_name || port?.public_slug || "Orphaned"}</td>
                       <td className="px-6 py-4 text-muted-foreground">{form.fields?.length || 0} Fields</td>
                       <td className="px-6 py-4 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleDuplicate(form)} title="Duplicate"><Copy className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="sm" onClick={() => { setFormToEdit(form); setIsFormManagerOpen(true); }} title="Edit in Manager"><Edit className="w-4 h-4" /></Button>
-                        <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(form.id)}><Trash2 className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" aria-label={`Duplicate ${form.name}`} onClick={() => handleDuplicate(form)} title="Duplicate"><Copy className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" aria-label={`Edit ${form.name}`} onClick={() => { setFormToEdit(form); setIsFormManagerOpen(true); }} title="Edit in Manager"><Edit className="w-4 h-4" /></Button>
+                        <Button variant="ghost" size="sm" aria-label={`Delete ${form.name}`} className="text-destructive hover:bg-destructive/10" onClick={() => handleDelete(form.id)}><Trash2 className="w-4 h-4" /></Button>
                       </td>
                     </tr>
                   )

@@ -23,7 +23,7 @@ export default function CustomerDashboardOverview() {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card className="bg-primary/5 border-primary/20 shadow-none hover:bg-primary/10 transition-colors cursor-pointer" onClick={() => navigate(`../orders`)}>
+        <Card role="button" tabIndex={0} aria-label="Open my orders" className="bg-primary/5 border-primary/20 shadow-none hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary transition-colors cursor-pointer" onClick={() => navigate(`../orders`)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); navigate(`../orders`); } }}>
           <CardContent className="p-6 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-primary/20 text-primary rounded-full flex items-center justify-center">

@@ -184,7 +184,7 @@ const ActorPayoutSettingsPage = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <div className="overflow-x-auto"><Table className="min-w-[680px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Bank</TableHead>
@@ -216,7 +216,7 @@ const ActorPayoutSettingsPage = () => {
                           Set as Active
                         </Button>
                       )}
-                      <Button variant="destructive" size="icon" onClick={() => handleDelete(method.id)}>
+                      <Button variant="destructive" size="icon" aria-label={`Delete ${method.bank_name} payout method`} onClick={() => handleDelete(method.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
@@ -226,7 +226,7 @@ const ActorPayoutSettingsPage = () => {
                 <TableRow><TableCell colSpan={5} className="h-24 text-center">No payout methods added yet.</TableCell></TableRow>
               )}
             </TableBody>
-          </Table>
+          </Table></div>
         </CardContent>
       </Card>
     </div>

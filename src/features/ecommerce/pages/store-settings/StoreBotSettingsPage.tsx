@@ -56,6 +56,8 @@ export default function StoreBotSettingsPage() {
         store_chat_voice_messages_enabled: false,
         store_chat_live_voice_enabled: false,
         store_chat_voice_name: 'alloy',
+        store_chat_voice_language: 'en',
+        store_chat_voice_welcome_phrase: '',
         store_chat_icon_type: 'message',
         store_chat_custom_icon_url: '',
         store_chat_suggested_questions: [] as { question: string, answer: string }[]
@@ -122,6 +124,8 @@ export default function StoreBotSettingsPage() {
             store_chat_voice_messages_enabled: getBoolean('store_chat_voice_messages_enabled', false),
             store_chat_live_voice_enabled: getBoolean('store_chat_live_voice_enabled', false),
             store_chat_voice_name: getString('store_chat_voice_name', 'alloy'),
+            store_chat_voice_language: getString('store_chat_voice_language', 'en'),
+            store_chat_voice_welcome_phrase: getString('store_chat_voice_welcome_phrase', ''),
             store_chat_icon_type: getString('store_chat_icon_type', 'message'),
             store_chat_custom_icon_url: getString('store_chat_custom_icon_url', ''),
             store_chat_suggested_questions: suggestedQuestions.map((q): SuggestedQuestion => typeof q === 'string' ? { question: q, answer: '' } : q as SuggestedQuestion)
@@ -555,6 +559,33 @@ export default function StoreBotSettingsPage() {
                             {microphoneStatus === 'checking' ? <Mic className="h-4 w-4 animate-pulse" /> : microphoneStatus === 'ready' ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <Mic className="h-4 w-4" />}
                             {microphoneStatus === 'checking' ? 'Checking microphone…' : microphoneStatus === 'ready' ? 'Microphone ready' : 'Test microphone'}
                         </Button>
+                        </div>
+                    )}
+
+                    {(config.store_chat_voice_messages_enabled || config.store_chat_live_voice_enabled) && (
+                        <div className="grid gap-4 rounded-xl border bg-muted/20 p-5 md:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label>Preferred welcome language <span className="text-destructive">*</span></Label>
+                                <select aria-label="Preferred welcome language" required className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={config.store_chat_voice_language} onChange={e => setConfig({...config, store_chat_voice_language: e.target.value})}>
+                                    <option value="en">English</option>
+                                    <option value="ar">Arabic</option>
+                                    <option value="fr">French</option>
+                                    <option value="es">Spanish</option>
+                                    <option value="de">German</option>
+                                    <option value="it">Italian</option>
+                                    <option value="pt">Portuguese</option>
+                                    <option value="tr">Turkish</option>
+                                    <option value="nl">Dutch</option>
+                                    <option value="hi">Hindi</option>
+                                    <option value="ur">Urdu</option>
+                                </select>
+                                <p className="text-xs text-muted-foreground">Required. The assistant always opens and speaks in this language unless the visitor asks to switch.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Custom welcome phrase <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                                <Input placeholder="e.g. Welcome to Aisha's Boutique, how can I help?" value={config.store_chat_voice_welcome_phrase} onChange={e => setConfig({...config, store_chat_voice_welcome_phrase: e.target.value})} maxLength={160} />
+                                <p className="text-xs text-muted-foreground">Leave blank to let the assistant open with a short, natural greeting.</p>
+                            </div>
                         </div>
                     )}
 
