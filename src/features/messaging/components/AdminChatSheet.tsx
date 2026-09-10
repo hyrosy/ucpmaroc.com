@@ -32,6 +32,15 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 import { toast } from "sonner";
 
+const getSpeechSynthesis = (): SpeechSynthesis | null => {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    return null;
+  }
+
+  const synthesis = window.speechSynthesis;
+  return synthesis && typeof synthesis.cancel === "function" ? synthesis : null;
+};
+
 // ==========================================
 // 1. ISOLATED INPUT COMPONENT (ZERO TYPING LAG)
 // ==========================================
@@ -187,7 +196,7 @@ export function AdminChatSheet() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const stopSpeech = () => {
-    window.speechSynthesis.cancel();
+    getSpeechSynthesis()?.cancel();
     setSpeakingIndex(null);
     setIsSpeechPaused(false);
   };
@@ -356,7 +365,12 @@ export function AdminChatSheet() {
   };
 
   const toggleSpeech = (text: string, index: number) => {
-    const synth = window.speechSynthesis;
+    const synth = getSpeechSynthesis();
+    if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
+      toast.error("Text-to-speech is not supported by this browser.");
+      return;
+    }
+
     if (speakingIndex === index) {
       if (isSpeechPaused) {
         synth.resume();

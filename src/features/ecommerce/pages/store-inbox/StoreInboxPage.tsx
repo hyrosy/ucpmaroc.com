@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/supabaseClient';
-import { MessageCircle, Search, Send, User, Bot } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Search, Send, User, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,6 +35,8 @@ export default function StoreInboxPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState<string | null>(null);
+    const [isSending, setIsSending] = useState(false);
+    const [messagesLoading, setMessagesLoading] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const fetchConversations = async () => {
@@ -98,6 +100,7 @@ export default function StoreInboxPage() {
     useEffect(() => {
         if (!activeId) return;
         const fetchMessages = async () => {
+            setMessagesLoading(true);
             const { data, error } = await supabase
                 .from('store_messages')
                 .select('*')
@@ -105,6 +108,7 @@ export default function StoreInboxPage() {
                 .order('created_at', { ascending: true });
             if (error) toast.error('Unable to load messages.');
             else if (data) setMessages(data);
+            setMessagesLoading(false);
         };
         fetchMessages();
 
@@ -137,6 +141,7 @@ export default function StoreInboxPage() {
         if (!newMessage.trim() || !activeId) return;
         const msg = newMessage;
         setNewMessage('');
+        setIsSending(true);
         
         // Optimistic UI update
         const tempId = `temp-${Date.now()}`;
@@ -146,19 +151,22 @@ export default function StoreInboxPage() {
         if (error) {
             setMessages(prev => prev.filter(m => m.id !== tempId));
             toast.error('Unable to send your reply.');
+            setNewMessage(msg);
+            setIsSending(false);
             return;
         }
 
         // Automatically set status to agent_requested so AI stops replying
         const { error: statusError } = await supabase.from('store_conversations').update({ status: 'agent_requested', updated_at: new Date().toISOString() }).eq('id', activeId);
         if (statusError) toast.error('Reply sent, but human takeover could not be activated.');
+        setIsSending(false);
     };
 
     return (
-        <div className="flex h-[calc(100dvh-8rem)] min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-background/70 shadow-sm backdrop-blur-sm md:flex-row">
+        <div className="flex h-[calc(100dvh-3.5rem)] min-h-0 w-full flex-col overflow-hidden bg-background md:flex-row">
             {/* Left Sidebar */}
-            <div className="flex h-[38%] w-full shrink-0 flex-col border-b bg-muted/20 md:h-auto md:w-[300px] md:border-b-0 md:border-r lg:w-[350px]">
-                <div className="border-b border-border/60 bg-background/70 p-4">
+            <div className={`${activeId ? 'hidden md:flex' : 'flex'} h-full w-full shrink-0 flex-col border-b bg-background md:w-[300px] md:border-b-0 md:border-r lg:w-[350px]`}>
+                <div className="border-b border-border/60 bg-background p-4">
                     <h2 className="font-semibold text-lg flex items-center gap-2">
                         <MessageCircle className="h-5 w-5 text-primary" /> Store Inbox
                     </h2>
@@ -169,7 +177,7 @@ export default function StoreInboxPage() {
                 </div>
                 <ScrollArea className="flex-1">
                     {loading ? <p className="p-4 text-center text-sm text-muted-foreground">Loading...</p>
-                    : loadError ? <p className="p-8 text-center text-sm text-destructive">{loadError}</p>
+                    : loadError ? <div className="flex flex-col items-center gap-3 p-8 text-center text-sm text-destructive"><p>{loadError}</p><Button variant="outline" size="sm" onClick={fetchConversations}>Try again</Button></div>
                     : visibleConversations.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">{searchQuery ? 'No conversations match your search.' : 'No active live chats.'}</p>
                     : <div className="flex flex-col">
                         {visibleConversations.map(conv => (
@@ -177,7 +185,7 @@ export default function StoreInboxPage() {
                                 <Avatar className="h-10 w-10 border bg-background"><AvatarFallback className="bg-muted text-muted-foreground"><User className="h-5 w-5" /></AvatarFallback></Avatar>
                                 <div className="flex-1 overflow-hidden">
                                     <div className="flex justify-between items-center mb-1">
-                                    <span className="font-medium text-sm flex items-center gap-1">Visitor #{conv.visitor_session_id.substring(0, 4)} {conv.status === 'agent_requested' && <span className="h-2 w-2 rounded-full bg-orange-500" title="Agent Handling" />}</span>
+                                    <span className="font-medium text-sm flex items-center gap-1">Visitor #{conv.visitor_session_id.substring(0, 4)} {conv.status === 'agent_requested' && <span className="h-2 w-2 rounded-full bg-orange-500" title="Agent Handling" aria-label="Agent handling" />}</span>
                                         <span className="text-[10px] text-muted-foreground">{new Date(conv.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                     </div>
                                     <p className="text-xs text-muted-foreground truncate">{conv.last_message?.sender_type === 'owner' ? 'You: ' : ''}{conv.last_message?.content || 'Started a chat'}</p>
@@ -189,25 +197,26 @@ export default function StoreInboxPage() {
             </div>
 
             {/* Right Chat Area */}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-transparent">
+            <div className={`${activeId ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col bg-muted/10`}>
                 {activeId ? (
                     <>
-                        <div className="z-10 flex shrink-0 items-center justify-between border-b border-border/60 bg-background/70 p-4 shadow-sm backdrop-blur-sm">
+                        <div className="z-10 flex shrink-0 items-center justify-between border-b border-border/60 bg-background p-4">
                             <div className="flex items-center gap-3">
+                                <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setActiveId(null)} aria-label="Back to conversations"><ArrowLeft className="h-4 w-4" /></Button>
                                 <Avatar className="h-9 w-9"><AvatarFallback className="bg-primary/10 text-primary">V</AvatarFallback></Avatar>
                                 <div>
-                                    <h3 className="font-semibold text-sm">Live Visitor</h3>
-                                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500"></span> Online</span></div>
+                                    <h3 className="font-semibold text-sm">Visitor #{activeId.substring(0, 4)}</h3>
+                                    <div className="flex items-center gap-2 text-xs text-muted-foreground"><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500"></span> Live conversation</span></div>
                                 </div>
                             </div>
                         </div>
-                        <ScrollArea className="min-h-0 flex-1 bg-muted/20 p-4 sm:p-6">
+                        <ScrollArea className="min-h-0 flex-1 p-4 sm:p-6">
                             <div className="space-y-4">
-                                {messages.map((msg, i) => {
+                                {messagesLoading ? <div className="py-8 text-center text-sm text-muted-foreground">Loading messages...</div> : messages.map((msg) => {
                                     const isOwner = msg.sender_type === 'owner';
                                     const isBot = msg.sender_type === 'ai_bot';
                                     return (
-                                        <div key={i} className={`flex ${isOwner ? 'justify-end' : 'justify-start'}`}>
+                                        <div key={msg.id} className={`flex ${isOwner ? 'justify-end' : 'justify-start'}`}>
                                             <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm shadow-sm ${isOwner ? 'bg-primary text-primary-foreground rounded-br-sm' : isBot ? 'bg-indigo-500 text-white rounded-bl-sm' : 'bg-background border rounded-bl-sm'}`}>
                                                 {isBot && <div className="flex items-center gap-1 mb-1 text-[10px] font-bold uppercase opacity-80"><Bot className="h-3 w-3" /> AI Assistant</div>}
 
@@ -220,15 +229,15 @@ export default function StoreInboxPage() {
                                 <div ref={scrollRef} />
                             </div>
                         </ScrollArea>
-                        <div className="shrink-0 border-t border-border/60 bg-background/70 p-4 backdrop-blur-sm">
+                        <div className="shrink-0 border-t border-border/60 bg-background p-4">
                             <form onSubmit={handleSend} className="flex gap-2">
-                                <Input placeholder="Type your reply..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1" />
-                                <Button type="submit" disabled={!newMessage.trim()}><Send className="h-4 w-4 mr-2" /> Send</Button>
+                                <Input aria-label="Reply to visitor" placeholder="Type your reply..." value={newMessage} onChange={(e) => setNewMessage(e.target.value)} className="flex-1" disabled={isSending} />
+                                <Button type="submit" disabled={!newMessage.trim() || isSending}><Send className="h-4 w-4 mr-2" /> {isSending ? 'Sending...' : 'Send'}</Button>
                             </form>
                         </div>
                     </>
                 ) : (
-                    <div className="flex h-full min-h-64 flex-col items-center justify-center space-y-4 bg-muted/20 text-muted-foreground">
+                    <div className="flex h-full min-h-64 flex-col items-center justify-center space-y-4 text-muted-foreground">
                         <MessageCircle className="h-12 w-12 opacity-20" /><p>Select a conversation to start chatting</p>
                     </div>
                 )}

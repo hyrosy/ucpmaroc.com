@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/supabaseClient";
 import { useOutletContext, useNavigate } from "react-router-dom";
-import { ActorDashboardContextType } from "@/layouts/ActorDashboardLayout"; "@/features/talent-marketplace";
+import { ActorDashboardContextType } from "@/layouts/ActorDashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -444,7 +444,7 @@ const OrdersPage = () => {
   }
 
   return (
-    <div className="p-4 md:p-8 space-y-6 w-full max-w-7xl mx-auto bg-muted/20 min-h-screen rounded-3xl">
+    <div className="p-4 md:p-8 space-y-6 w-full max-w-7xl mx-auto">
       {/* HEADER */}
       <DashboardPageHeader
         title="Direct orders"

@@ -82,7 +82,7 @@ const AdminDashboardLayout = () => {
   if (loading) return <PlatformLoader message="Loading Admin Panel..." />;
 
   return (
-    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 text-foreground flex flex-col antialiased">
+    <div className="min-h-screen bg-background text-foreground flex flex-col antialiased">
       {/* --- TOPBAR --- */}
       <header className="flex h-14 border-b border-border/40 bg-background/95 backdrop-blur fixed top-0 w-full z-50 items-center justify-between px-4">
         <div className="flex items-center gap-4">
@@ -210,7 +210,7 @@ const AdminDashboardLayout = () => {
         {/* --- MAIN CONTENT --- */}
         <main
           className={cn(
-            "flex-1 min-w-0 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-zinc-50/50 dark:bg-black",
+            "flex-1 min-w-0 min-h-[calc(100vh-3.5rem)] flex flex-col transition-all duration-300 ease-in-out bg-background",
             isCollapsed ? "md:ml-[72px]" : "md:ml-[260px]",
             "app-bottom-safe pb-20 md:pb-8"
           )}

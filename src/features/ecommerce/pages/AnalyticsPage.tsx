@@ -188,7 +188,7 @@ const AnalyticsPage = () => {
     );
 
   return (
-    <div className="p-4 md:p-8 space-y-6 w-full max-w-8xl mx-auto bg-muted/20 min-h-[calc(100vh-4rem)] rounded-3xl">
+    <div className="p-4 md:p-8 space-y-6 w-full max-w-8xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 mb-4">
         <div>

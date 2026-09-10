@@ -222,7 +222,7 @@ export default function ProOrderDetailPage() {
   const StatusIcon = STATUS_MAP[order.status as keyof typeof STATUS_MAP]?.icon || Clock;
 
   return (
-    <div className="p-4 md:p-8 space-y-6 w-full max-w-7xl mx-auto bg-muted/20 min-h-screen rounded-3xl">
+    <div className="p-4 md:p-8 space-y-6 w-full max-w-7xl mx-auto">
       
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">

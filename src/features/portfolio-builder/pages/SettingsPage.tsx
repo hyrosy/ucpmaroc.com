@@ -24,7 +24,6 @@ import {
   User,
   Plus,
   ExternalLink,
-  LayoutTemplate,
   Check,
   CreditCard,
   ArrowUpRight,
@@ -35,6 +34,9 @@ import {
   X,
   Clock,
   Sparkles,
+  MoreVertical,
+  Pencil,
+  Receipt,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -45,6 +47,21 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import {
   NotificationContainer,
@@ -799,7 +816,7 @@ const SettingsPage = () => {
     );
 
   return (
-    <div className=" md:p-4  w-full max-w-8xl ">
+    <div className="w-full max-w-8xl md:p-4">
       <NotificationContainer
         notifications={notifications}
         removeNotification={removeNotification}
@@ -817,52 +834,49 @@ const SettingsPage = () => {
       <div className="px-4 py-6 md:py-8 space-y-6">
         <div className="flex flex-col md:flex-row justify-between md:items-end gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl md:text-4xl font-black tracking-tight text-foreground">
-              Settings Hub
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+              Settings
             </h1>
-            <p className="text-muted-foreground text-base md:text-lg">
-              Manage your sites, billing, and profile.
+            <p className="text-muted-foreground text-sm md:text-base">
+              Manage your sites, subscriptions, and billing.
             </p>
           </div>
+          <Button onClick={() => (siteSlots.remaining > 0 ? setIsCreateOpen(true) : handleBuySlot())} className="font-semibold shrink-0">
+            <Plus size={16} className="mr-1.5" /> New website
+          </Button>
         </div>
 
         {/* --- STATS WIDGETS --- */}
-        <div className="grid grid-cols-2 md:flex md:flex-wrap items-stretch gap-3">
-          <div className="col-span-1 md:w-auto flex flex-col justify-between bg-card p-4 md:p-3 md:px-5 rounded-2xl border shadow-sm min-h-[80px] md:min-h-[60px] md:flex-row md:items-center md:gap-4">
-            <div className="flex flex-col items-start">
-              <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest leading-none mb-1.5">
-                Slots
-              </span>
-              <span className="text-2xl md:text-xl font-black leading-none">
-                {isSubLoading ? "..." : `${siteSlots.used}/${siteSlots.total}`}
-              </span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
+            <div>
+              <span className="text-xs text-muted-foreground font-medium">Websites</span>
+              <div className="text-xl font-bold text-foreground mt-0.5">{portfolios.length}</div>
             </div>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="mt-2 md:mt-0 h-8 md:h-10 w-full md:w-auto px-0 md:px-4 border-t md:border-t-0 md:border-l border-dashed hover:bg-primary/10 hover:text-primary justify-center md:justify-start text-xs md:text-sm text-muted-foreground rounded-xl transition-all"
-              onClick={handleBuySlot}
-            >
-              <Plus size={14} className="mr-1 md:mr-0" />{" "}
-              <span className="md:hidden">Add Slot</span>
+            <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+              <Globe size={18} />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
+            <div>
+              <span className="text-xs text-muted-foreground font-medium">Site slots</span>
+              <div className="text-xl font-bold text-foreground mt-0.5">
+                {isSubLoading ? "..." : `${siteSlots.used}/${siteSlots.total}`}
+              </div>
+            </div>
+            <Button size="sm" variant="outline" className="shrink-0" onClick={handleBuySlot}>
+              <Plus size={14} className="mr-1" /> Add
             </Button>
           </div>
 
-          <div className="col-span-1 md:w-auto flex flex-col justify-between bg-gradient-to-br from-amber-50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/10 p-4 md:p-3 md:px-5 rounded-2xl border border-amber-200/50 dark:border-amber-900/50 shadow-sm min-h-[80px] md:min-h-[60px] md:flex-row md:items-center md:gap-4">
-            <div className="flex flex-col items-start">
-              <span className="text-[10px] text-amber-600/80 uppercase font-bold tracking-widest leading-none mb-1.5">
-                Balance
-              </span>
-              <span className="text-2xl md:text-2xl font-black text-amber-600 leading-none break-all">
-                {walletBalance.toLocaleString()}
-              </span>
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
+            <div>
+              <span className="text-xs text-muted-foreground font-medium">Coin balance</span>
+              <div className="text-xl font-bold text-foreground mt-0.5">{walletBalance.toLocaleString()}</div>
             </div>
-            <Button
-              size="sm"
-              onClick={() => setIsTopUpOpen(true)}
-              className="mt-2 md:mt-0 h-8 md:h-10 w-full md:w-auto text-xs md:text-sm rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-sm font-bold active:scale-95 transition-transform"
-            >
-              <Plus size={14} className="mr-1" /> Top Up
+            <Button size="sm" onClick={() => setIsTopUpOpen(true)} className="shrink-0 font-semibold">
+              <Plus size={14} className="mr-1" /> Top up
             </Button>
           </div>
         </div>
@@ -874,80 +888,44 @@ const SettingsPage = () => {
         className="w-full"
       >
         {/* --- STICKY SUB NAVIGATION --- */}
-        <div className="sticky top-[60px] md:top-14 z-40 bg-background/80 backdrop-blur-xl border-b border-border/40 px-4 md:px-8 py-3 mb-6 transition-all">
-          <TabsList className="w-full flex md:grid md:grid-cols-2 h-12 p-1.5 bg-muted/40 rounded-2xl overflow-x-auto no-scrollbar justify-start gap-2">
+        <div className="sticky top-[60px] md:top-14 z-40 bg-background/95 backdrop-blur-xl border-b border-border/60 px-4 md:px-8 transition-all">
+          <TabsList className="h-auto bg-transparent p-0 gap-6 justify-start rounded-none">
             <TabsTrigger
               value="websites"
-              className="flex-1 h-full rounded-xl text-xs md:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-border/50 border border-transparent data-[state=active]:shadow-sm transition-all whitespace-nowrap min-w-[120px]"
+              className="h-11 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-sm font-semibold text-muted-foreground data-[state=active]:text-foreground"
             >
-              <Globe size={16} className="mr-2 hidden sm:block" /> Sites
+              <Globe size={16} className="mr-2" /> Sites
             </TabsTrigger>
             <TabsTrigger
               value="billing"
-              className="flex-1 h-full rounded-xl text-xs md:text-sm font-semibold data-[state=active]:bg-background data-[state=active]:text-primary data-[state=active]:border-border/50 border border-transparent data-[state=active]:shadow-sm transition-all whitespace-nowrap min-w-[120px]"
+              className="h-11 px-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none text-sm font-semibold text-muted-foreground data-[state=active]:text-foreground"
             >
-              <Coins size={16} className="mr-2 hidden sm:block" /> Billing
+              <Receipt size={16} className="mr-2" /> Billing
             </TabsTrigger>
           </TabsList>
         </div>
 
-        <div className="px-4 md:px-8">
+        <div className="px-4 md:px-8 py-6">
           {/* --- TAB 1: WEBSITES --- */}
           <TabsContent
             value="websites"
             className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-0"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              <div
-                role="button"
-                tabIndex={0}
-                className={cn(
-                  "relative flex flex-col items-center justify-center gap-4 min-h-[220px] md:min-h-[280px] rounded-3xl border-2 border-dashed p-6 transition-all duration-200 outline-none active:scale-[0.98] md:hover:scale-[1.02]",
-                  siteSlots.remaining > 0
-                    ? "border-muted-foreground/30 bg-muted/10 hover:border-primary/50 hover:bg-primary/5 cursor-pointer"
-                    : "border-muted/50 opacity-75 bg-muted/20"
-                )}
-                onClick={() => {
-                  if (siteSlots.remaining > 0) setIsCreateOpen(true);
-                  else handleBuySlot();
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    if (siteSlots.remaining > 0) setIsCreateOpen(true);
-                    else handleBuySlot();
-                  }
-                }}
-                aria-label={siteSlots.remaining > 0 ? "Create a new website" : "Purchase a website slot"}
-              >
-                <div
-                  className={cn(
-                    "w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center shadow-sm transition-all",
-                    siteSlots.remaining > 0
-                      ? "bg-background text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 border"
-                      : "bg-muted text-muted-foreground"
-                  )}
-                >
-                  {siteSlots.remaining > 0 ? (
-                    <Plus size={28} />
-                  ) : (
-                    <Box size={28} />
-                  )}
+            {portfolios.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/10 py-20 text-center">
+                <div className="h-14 w-14 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <Globe size={24} />
                 </div>
-                <div className="text-center z-10">
-                  <span className="block font-bold text-xl text-foreground mb-1">
-                    {siteSlots.remaining > 0 ? "New Website" : "No Slots"}
-                  </span>
-                  <span className="text-xs md:text-sm text-muted-foreground block">
-                    {siteSlots.remaining > 0
-                      ? `${siteSlots.remaining} slot${
-                          siteSlots.remaining > 1 ? "s" : ""
-                        } available`
-                      : "Tap to purchase a slot"}
-                  </span>
+                <div>
+                  <h3 className="font-bold text-lg text-foreground">No websites yet</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Create your first website to get started.</p>
                 </div>
+                <Button onClick={() => (siteSlots.remaining > 0 ? setIsCreateOpen(true) : handleBuySlot())} className="font-semibold">
+                  <Plus size={16} className="mr-1.5" /> New website
+                </Button>
               </div>
-
+            ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {portfolios.map((site) => {
                 const sub = subscriptions[site.id];
                 const currentPlanObj =
@@ -1022,15 +1000,37 @@ const SettingsPage = () => {
                           )}
                         </div>
                         <div className="h-8 w-8 flex items-center justify-center -mr-2 -mt-1">
-                          <a
-                            href={`/pro/${site.public_slug}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            aria-label={`Open ${site.site_name || "website"} in a new tab`}
-                            className="text-muted-foreground hover:text-foreground p-2"
-                          >
-                            <ExternalLink size={18} />
-                          </a>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                aria-label={`More actions for ${site.site_name || "website"}`}
+                              >
+                                <MoreVertical size={16} />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem asChild>
+                                <a href={`/pro/${site.public_slug}`} target="_blank" rel="noreferrer" className="cursor-pointer">
+                                  <ExternalLink size={14} className="mr-2" /> Preview
+                                </a>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <a href={`/dashboard/portfolio?id=${site.id}`} className="cursor-pointer">
+                                  <Pencil size={14} className="mr-2" /> Edit site
+                                </a>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => openDeleteDialog(site.id)}
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                              >
+                                <Trash2 size={14} className="mr-2" /> Delete site
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                       <CardTitle className="truncate text-lg font-bold leading-tight">
@@ -1068,7 +1068,7 @@ const SettingsPage = () => {
                         </div>
                       )}
                     </CardContent>
-                    <CardFooter className="p-4 pt-2 grid grid-cols-[1fr_auto_auto] gap-2">
+                    <CardFooter className="p-4 pt-2">
                       {/* 🚀 If it's a Stripe subscription, direct them to Manage */}
                       {isPro && sub?.payment_method === "stripe" ? (
                         <Button
@@ -1101,41 +1101,38 @@ const SettingsPage = () => {
                           {isPro ? "Manage Plan" : isTrialEnded ? "Select Plan to Continue" : "Upgrade"}
                         </Button>
                       )}
-                      <Button
-                        size="icon"
-                        variant="outline"
-                        className="h-10 w-10 rounded-xl border-muted-foreground/20 hover:bg-primary/5 hover:text-primary transition-colors"
-                        asChild
-                      >
-                        <a href={`/dashboard/portfolio?id=${site.id}`}>
-                          <span className="sr-only">Edit {site.site_name || "website"}</span>
-                          <LayoutTemplate size={16} />
-                        </a>
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-10 w-10 rounded-xl text-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                        onClick={() => openDeleteDialog(site.id)}
-                        aria-label={`Delete ${site.site_name || "website"}`}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
                     </CardFooter>
                   </Card>
                 );
               })}
             </div>
+            )}
           </TabsContent>
 
           {/* --- TAB 2: BILLING --- */}
           <TabsContent
             value="billing"
-            className="mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500"
+            className="mt-0 animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6"
           >
-            <Card className="rounded-3xl shadow-sm border-border/60 overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Coin Transactions</CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <Coins size={18} />
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground font-medium">Coin balance</div>
+                  <div className="text-lg font-bold text-foreground">{walletBalance.toLocaleString()}</div>
+                </div>
+              </div>
+              <Button onClick={() => setIsTopUpOpen(true)} className="font-semibold shrink-0">
+                <Plus size={14} className="mr-1.5" /> Top up
+              </Button>
+            </div>
+
+            <Card className="rounded-xl shadow-sm border-border/60 overflow-hidden">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Transaction history</CardTitle>
+                <CardDescription>Your last 10 coin transactions.</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 {transactions.length === 0 ? (
@@ -1143,48 +1140,57 @@ const SettingsPage = () => {
                     No transactions yet.
                   </div>
                 ) : (
-                  <div className="divide-y border-t">
-                    {transactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex justify-between items-center p-4 hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="hidden sm:table-cell">Date</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((tx) => (
+                        <TableRow key={tx.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div
+                                className={cn(
+                                  "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+                                  tx.amount > 0
+                                    ? "bg-emerald-500/10 text-emerald-600"
+                                    : "bg-muted text-muted-foreground"
+                                )}
+                              >
+                                {tx.amount > 0 ? (
+                                  <ArrowUpRight size={14} />
+                                ) : (
+                                  <CreditCard size={14} />
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-medium text-sm">{tx.description}</div>
+                                <div className="text-[11px] text-muted-foreground sm:hidden">
+                                  {new Date(tx.created_at).toLocaleDateString()}
+                                </div>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                            {new Date(tx.created_at).toLocaleDateString()}
+                          </TableCell>
+                          <TableCell
                             className={cn(
-                              "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-                              tx.amount > 0
-                                ? "bg-green-100 text-green-600"
-                                : "bg-red-100 text-red-600"
+                              "text-right font-semibold whitespace-nowrap",
+                              tx.amount > 0 ? "text-emerald-600" : "text-foreground"
                             )}
                           >
-                            {tx.amount > 0 ? (
-                              <ArrowUpRight size={14} />
-                            ) : (
-                              <CreditCard size={14} />
-                            )}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-sm">
-                              {tx.description}
-                            </div>
-                            <div className="text-[11px] text-muted-foreground">
-                              {new Date(tx.created_at).toLocaleDateString()}
-                            </div>
-                          </div>
-                        </div>
-                        <div
-                          className={cn(
-                            "font-bold text-sm whitespace-nowrap",
-                            tx.amount > 0 ? "text-green-600" : ""
-                          )}
-                        >
-                          {tx.amount > 0 ? "+" : ""}
-                          {tx.amount}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                            {tx.amount > 0 ? "+" : ""}
+                            {tx.amount}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 )}
               </CardContent>
             </Card>
@@ -1273,51 +1279,60 @@ const SettingsPage = () => {
       {/* --- UPGRADE MODAL --- */}
       <Dialog open={isUpgradeOpen} onOpenChange={setIsUpgradeOpen}>
         <DialogContent className="w-full h-[100dvh] sm:h-[90vh] sm:max-w-[1000px] p-0 flex flex-col bg-background sm:rounded-2xl border-none">
-          <div className="p-4 border-b shrink-0 flex items-center justify-between">
-            <div>
+          <div className="p-4 sm:p-5 border-b shrink-0 flex items-center justify-between gap-4">
+            <div className="min-w-0">
               <DialogTitle className="text-xl font-bold">
-                {isSelectedExpired ? "Select a Plan to Continue" : "Manage Plan"}
+                {isSelectedExpired ? "Select a plan to continue" : "Manage plan"}
               </DialogTitle>
-              <DialogDescription className="text-xs">
-                {isSelectedExpired ? "Your plan or trial has expired. Select a plan to keep your site active." : "Upgrade your website."}
+              <DialogDescription className="text-xs truncate">
+                {isSelectedExpired
+                  ? "Your plan or trial has expired. Select a plan to keep your site active."
+                  : `Choose the best plan for ${portfolios.find((p) => p.id === selectedPortfolioId)?.site_name || "your website"}.`}
               </DialogDescription>
             </div>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setIsUpgradeOpen(false)}
-              className="sm:hidden"
+              className="shrink-0"
+              aria-label="Close plan selector"
             >
               <X size={20} />
             </Button>
           </div>
           <div className="flex-grow overflow-y-auto p-4 custom-scrollbar">
-            <div className="flex justify-start sm:justify-center mb-6 overflow-x-auto no-scrollbar pb-2">
-              <div className="bg-muted/50 p-1.5 rounded-2xl flex gap-1 border shrink-0">
-                {[1, 3, 6, 12].map((duration) => {
-                  const isActive = billingDuration === duration;
-                  return (
-                    <button
-                      key={duration}
-                      onClick={() =>
-                        setBillingDuration(duration as PlanDuration)
-                      }
-                      className={cn(
-                        "px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap border border-transparent",
-                        isActive
-                          ? "bg-background shadow-sm text-foreground border-border/50"
-                          : "text-muted-foreground hover:text-foreground"
-                      )}
-                    >
-                      {duration === 1 ? "Monthly" : `${duration} Months`}
-                      {duration > 1 && (
-                        <span className="text-[9px] bg-green-500 text-white px-1.5 rounded-full">
-                          SAVE
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+            <div className="flex flex-col items-start sm:items-center gap-2 mb-6">
+              <div className="flex justify-start sm:justify-center overflow-x-auto no-scrollbar pb-1 w-full">
+                <div className="bg-muted/50 p-1.5 rounded-2xl flex gap-1 border shrink-0 mx-auto">
+                  {[1, 3, 6, 12].map((duration) => {
+                    const isActive = billingDuration === duration;
+                    const bestLabel = PLANS.reduce<string | null>((best, p) => {
+                      const l = p.pricing[duration as PlanDuration]?.label;
+                      return l && (!best || parseInt(l) > parseInt(best)) ? l : best;
+                    }, null);
+                    return (
+                      <button
+                        key={duration}
+                        onClick={() =>
+                          setBillingDuration(duration as PlanDuration)
+                        }
+                        className={cn(
+                          "px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap border border-transparent",
+                          isActive
+                            ? "bg-background shadow-sm text-foreground border-border/50"
+                            : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {duration === 1 ? "Monthly" : `${duration} Months`}
+                        {bestLabel && (
+                          <Badge variant="outline" className="text-[9px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-1.5 py-0 h-4">
+                            {bestLabel}
+                          </Badge>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-12">
@@ -1346,43 +1361,54 @@ const SettingsPage = () => {
                   <Card
                     key={plan.id}
                     className={cn(
-                      "flex flex-col border-2 overflow-hidden",
-                      isExactlyCurrent ? "border-primary bg-primary/5" : ""
+                      "relative flex flex-col overflow-hidden",
+                      isExactlyCurrent ? "border-primary bg-primary/5 border-2" : plan.popular ? "border-primary border-2" : "border-border/60"
                     )}
                   >
-                    <CardHeader className="pb-3 p-5">
-                      <CardTitle className="flex justify-between">
-                        {plan.name} {isExactlyCurrent && <Badge>Active</Badge>}
-                      </CardTitle>
-                      <div className="text-2xl font-black mt-2">
-                        ${details.stripeCost}
-                        <span className="text-sm text-muted-foreground font-medium">
-                          /mo
-                        </span>
+                    {plan.popular && !isExactlyCurrent && (
+                      <div className="absolute top-0 inset-x-0 bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-wider text-center py-1">
+                        Most popular
                       </div>
+                    )}
+                    <CardHeader className={cn("pb-3 p-5", plan.popular && !isExactlyCurrent && "pt-8")}>
+                      <CardTitle className="flex items-center justify-between text-base">
+                        {plan.name} {isExactlyCurrent && <Badge>Current</Badge>}
+                      </CardTitle>
+                      <div className="flex items-baseline gap-2 mt-2">
+                        <span className="text-2xl font-bold text-foreground">
+                          ${details.stripeCost}
+                          <span className="text-sm text-muted-foreground font-medium">/mo</span>
+                        </span>
+                        {details.label && (
+                          <Badge variant="outline" className="text-[10px] border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                            {details.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{plan.description}</p>
                     </CardHeader>
                     <CardContent className="flex-grow p-5 pt-0 space-y-4">
-                      <div className="bg-amber-50 dark:bg-amber-950/30 p-3 rounded-lg text-center border border-amber-100 dark:border-amber-900/50">
-                        <div className="text-[10px] text-amber-700 dark:text-amber-500 font-bold uppercase mb-1">
-                          Coin Price
-                        </div>
-                        <div className="flex items-center justify-center gap-1.5 text-amber-900 dark:text-amber-400 font-black text-lg">
-                          <Coins
-                            size={16}
-                            className="fill-amber-500 text-amber-600"
-                          />{" "}
+                      <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+                        <span className="text-xs font-medium text-muted-foreground">Or pay with coins</span>
+                        <span className="flex items-center gap-1.5 font-bold text-sm text-foreground">
+                          <Coins size={14} className="text-amber-500" />
                           {proration.isUpgrade && proration.unusedValue > 0
                             ? proration.cost
                             : details.coinCost}
-                        </div>
+                        </span>
                       </div>
+                      {proration.unusedValue > 0 && !isExactlyCurrent && (
+                        <p className="text-[11px] text-muted-foreground -mt-2">
+                          Includes a {proration.unusedValue.toLocaleString()} coin credit from your current plan.
+                        </p>
+                      )}
                       <ul className="space-y-2">
                         {plan.features.map((f) => (
                           <li
                             key={f}
                             className="flex items-center gap-3 text-xs font-medium text-muted-foreground"
                           >
-                            <Check size={14} className="text-green-600" /> {f}
+                            <Check size={14} className="text-primary shrink-0" /> {f}
                           </li>
                         ))}
                       </ul>
