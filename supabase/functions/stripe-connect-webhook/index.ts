@@ -29,14 +29,39 @@ serve(async (request) => {
       cryptoProvider
     );
 
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Idempotency: Stripe can redeliver the same event after a network retry.
+    // Record the event id first; if it already exists, this event was already handled.
+    const { error: dedupeError } = await supabase
+      .from("processed_stripe_events")
+      .insert({ event_id: event.id, event_type: event.type });
+    if (dedupeError) {
+      if (dedupeError.code === "23505") {
+        return new Response(JSON.stringify({ received: true, deduped: true }), { status: 200 });
+      }
+      throw dedupeError;
+    }
+
     // We only care about successful Connect payments
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object as any;
 
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL") ?? "",
-        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-      );
+      // This platform charges Platform Credit top-ups on the same Stripe account, so
+      // top-up payment intents can also arrive here — handle them and stop.
+      if (paymentIntent.metadata?.type === "top_up") {
+        const { error } = await supabase.rpc("process_stripe_topup", {
+          p_actor_id: paymentIntent.metadata.actor_id,
+          p_coins_amount: parseInt(paymentIntent.metadata.coins_amount),
+          p_amount_paid_cents: paymentIntent.amount,
+          p_stripe_payment_intent_id: paymentIntent.id,
+        });
+        if (error) throw error;
+        return new Response(JSON.stringify({ received: true }), { status: 200 });
+      }
 
       // 1. Fetch the exact order to process items and customer info
       const { data: order } = await supabase
@@ -164,6 +189,30 @@ serve(async (request) => {
             }),
           });
         }
+      }
+    }
+
+    // A cardholder disputed a charge. Route the reversal based on what the payment was for:
+    // a Platform Credits top-up (reverse credits + suspend) or a store order (flag it).
+    if (event.type === "charge.dispute.created") {
+      const dispute = event.data.object as any;
+      const paymentIntent = await stripe.paymentIntents.retrieve(dispute.payment_intent as string);
+
+      if (paymentIntent.metadata?.type === "top_up") {
+        const { error } = await supabase.rpc("handle_charge_dispute", {
+          p_actor_id: paymentIntent.metadata.actor_id,
+          p_credits_amount: parseInt(paymentIntent.metadata.coins_amount),
+          p_stripe_payment_intent_id: paymentIntent.id,
+          p_amount_cents: dispute.amount,
+          p_dispute_reason: `Stripe chargeback on payment ${paymentIntent.id}`,
+        });
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("pro_orders")
+          .update({ status: "disputed" })
+          .eq("stripe_payment_intent_id", paymentIntent.id);
+        if (error) console.error("Failed to flag disputed order:", error.message);
       }
     }
 

@@ -48,6 +48,8 @@ import {
   Video,
   PackageCheck,
   Bot,
+  AlertTriangle,
+  Receipt,
   MessageCircle,
 } from "lucide-react";
 
@@ -89,6 +91,8 @@ interface Actor {
   HeadshotURL?: string;
   is_p2p_enabled?: boolean;
   wallet_balance?: number;
+  is_suspended?: boolean;
+  suspended_reason?: string;
   country?: string;
   marketplace_status?: string;
   email?: string;
@@ -213,6 +217,12 @@ const NAV_GROUPS = [
         name: "Settings & Sites",
         icon: Settings,
         description: "Manage domains & profile",
+      },
+      {
+        to: "/dashboard/billing",
+        name: "Billing",
+        icon: Receipt,
+        description: "Credits, services & payment methods",
       },
       {
         to: "/dashboard/profile",
@@ -369,7 +379,7 @@ const ActorDashboardLayout = () => {
     const { data: actorProfile, error: actorError } = await supabase
       .from("actors")
       .select(
-        "id, ActorName, slug, HeadshotURL, is_p2p_enabled, wallet_balance, country, marketplace_status"
+        "id, ActorName, slug, HeadshotURL, is_p2p_enabled, wallet_balance, is_suspended, suspended_reason, country, marketplace_status"
       )
       .eq("user_id", user.id)
       .single();
@@ -404,6 +414,7 @@ const ActorDashboardLayout = () => {
           setActorData((prev) => ({
             ...prev,
             wallet_balance: payload.new.wallet_balance,
+            is_suspended: payload.new.is_suspended,
           }));
         }
       )
@@ -472,14 +483,28 @@ const ActorDashboardLayout = () => {
 
           <div className="flex items-center gap-2">
             {/* 🚀 THE WALLET WIDGET */}
-            <div className={cn("flex items-center bg-amber-500/10 border border-amber-500/20 rounded-full pr-1 pl-3 h-9 mr-2 transition-all", tourStep === 2 && "relative z-[10001] ring-4 ring-amber-500/50 bg-background shadow-2xl scale-105 pointer-events-auto")}>
-              <Coins size={14} className="text-amber-500 mr-2" />
-              <span className="font-black text-sm text-amber-600 dark:text-amber-400 mr-3">
+            <div
+              className={cn(
+                "flex items-center rounded-full pr-1 pl-3 h-9 mr-2 transition-all border",
+                (actorData.is_suspended || (actorData.wallet_balance ?? 0) < 0)
+                  ? "bg-destructive/10 border-destructive/30"
+                  : "bg-amber-500/10 border-amber-500/20",
+                tourStep === 2 && "relative z-[10001] ring-4 ring-amber-500/50 bg-background shadow-2xl scale-105 pointer-events-auto"
+              )}
+            >
+              <Coins size={14} className={cn("mr-2", (actorData.is_suspended || (actorData.wallet_balance ?? 0) < 0) ? "text-destructive" : "text-amber-500")} />
+              <span className={cn("font-black text-sm mr-3", (actorData.is_suspended || (actorData.wallet_balance ?? 0) < 0) ? "text-destructive" : "text-amber-600 dark:text-amber-400")}>
                 {actorData.wallet_balance?.toLocaleString() || 0}
               </span>
               <Button
                 size="icon"
-                className={cn("h-7 w-7 rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-sm transition-all", tourStep === 2 && "animate-pulse")}
+                className={cn(
+                  "h-7 w-7 rounded-full text-white shadow-sm transition-all",
+                  (actorData.is_suspended || (actorData.wallet_balance ?? 0) < 0)
+                    ? "bg-destructive hover:bg-destructive/90"
+                    : "bg-amber-500 hover:bg-amber-600",
+                  tourStep === 2 && "animate-pulse"
+                )}
                 onClick={() => {
                   setIsTopUpOpen(true);
                   if (tourStep === 2) {
@@ -795,6 +820,17 @@ const ActorDashboardLayout = () => {
               isMessagesPage ? "app-bottom-safe md:pb-0" : "app-bottom-safe pb-20 md:pb-8"
             )}
           >
+        {actorData.is_suspended && (
+          <div role="alert" className="m-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive">
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              <AlertTriangle size={16} className="shrink-0" />
+              Account suspended: your credit balance is negative. Settle the outstanding amount to unlock your account.
+            </div>
+            <Button size="sm" variant="destructive" onClick={() => setIsTopUpOpen(true)} className="shrink-0">
+              Settle balance
+            </Button>
+          </div>
+        )}
         <Outlet context={{ actorData, role: "actor", selectedSiteId, setSelectedSiteId }} />
           </main>
         </div>

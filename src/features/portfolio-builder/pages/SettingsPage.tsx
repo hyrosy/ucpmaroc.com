@@ -872,8 +872,8 @@ const SettingsPage = () => {
 
           <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
             <div>
-              <span className="text-xs text-muted-foreground font-medium">Coin balance</span>
-              <div className="text-xl font-bold text-foreground mt-0.5">{walletBalance.toLocaleString()}</div>
+              <span className="text-xs text-muted-foreground font-medium">Platform Credits</span>
+              <div className={cn("text-xl font-bold mt-0.5", walletBalance < 0 ? "text-destructive" : "text-foreground")}>{walletBalance.toLocaleString()}</div>
             </div>
             <Button size="sm" onClick={() => setIsTopUpOpen(true)} className="shrink-0 font-semibold">
               <Plus size={14} className="mr-1" /> Top up
@@ -1116,12 +1116,12 @@ const SettingsPage = () => {
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center", walletBalance < 0 ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary")}>
                   <Coins size={18} />
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground font-medium">Coin balance</div>
-                  <div className="text-lg font-bold text-foreground">{walletBalance.toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground font-medium">Platform Credits</div>
+                  <div className={cn("text-lg font-bold", walletBalance < 0 ? "text-destructive" : "text-foreground")}>{walletBalance.toLocaleString()}</div>
                 </div>
               </div>
               <Button onClick={() => setIsTopUpOpen(true)} className="font-semibold shrink-0">
@@ -1132,7 +1132,7 @@ const SettingsPage = () => {
             <Card className="rounded-xl shadow-sm border-border/60 overflow-hidden">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base">Transaction history</CardTitle>
-                <CardDescription>Your last 10 coin transactions.</CardDescription>
+                <CardDescription>Your last 10 credit transactions.</CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 {transactions.length === 0 ? (

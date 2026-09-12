@@ -48,6 +48,18 @@ serve(async (req) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
           );
 
+          // Idempotency: NOWPayments can resend the same IPN call. Record it first;
+          // if it's already been processed, skip crediting the account again.
+          const { error: dedupeError } = await supabase
+            .from("processed_stripe_events")
+            .insert({ event_id: `NOWPAYMENTS_${body.payment_id}`, event_type: "crypto_topup" });
+          if (dedupeError) {
+            if (dedupeError.code === "23505") {
+              return new Response(JSON.stringify({ status: "success", deduped: true }), { status: 200 });
+            }
+            throw dedupeError;
+          }
+
           // Safely add coins to wallet and write a transaction receipt!
           const { error } = await supabase.rpc("process_stripe_topup", {
             p_actor_id: actorId,

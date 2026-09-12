@@ -4,6 +4,7 @@
 export { default as PortfolioBuilderPage } from './pages/PortfolioBuilderPage';
 export { default as BuilderPreview } from './pages/BuilderPreview';
 export { default as SettingsPage } from './pages/SettingsPage';
+export { default as BillingPage } from './pages/BillingPage';
 export { default as PortfolioHome } from './pages/PortfolioHome';
 export { default as DynamicPage } from './pages/DynamicPage';
 
