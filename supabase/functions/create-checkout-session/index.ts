@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1"
 import Stripe from "https://esm.sh/stripe@12.0.0"
+import { getOrCreateStripeCustomer } from "../_shared/stripeCustomer.ts"
 
 const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") ?? "", {
   apiVersion: "2022-11-15",
@@ -50,11 +52,23 @@ serve(async (req) => {
         });
     }
 
+    // Attach a persistent Stripe Customer so the card is reusable in the billing portal
+    // and the customer-scoped payment-methods manager, instead of a throwaway guest checkout.
+    let customerId: string | undefined
+    if (metadata?.actor_id) {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      )
+      customerId = await getOrCreateStripeCustomer(supabase, stripe, metadata.actor_id)
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: mode,
       line_items: line_items,
       metadata: metadata, // Crucial! This tells our Webhook who to credit later.
+      customer: customerId,
       success_url: successUrl,
       cancel_url: cancelUrl,
     })

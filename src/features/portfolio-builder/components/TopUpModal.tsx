@@ -27,6 +27,7 @@ import {
   Gift,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CREDIT_PACKS, CREDIT_UNIT_USD, MIN_CUSTOM_CREDIT_AMOUNT } from "@/config/plans";
 
 // --- STRIPE IMPORTS ---
 import { loadStripe } from "@stripe/stripe-js";
@@ -40,55 +41,6 @@ import {
 const stripePromise = loadStripe(
   import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || ""
 );
-
-const COIN_PACKS = [
-  {
-    id: "handful",
-    name: "Starter Pack",
-    coins: 250,
-    cost: 5,
-    bonus: "",
-  },
-  {
-    id: "bag",
-    name: "Popular Pack",
-    coins: 550,
-    cost: 10,
-    bonus: "+50 free",
-    popular: true,
-  },
-  {
-    id: "chest",
-    name: "Growth Pack",
-    coins: 1200,
-    cost: 20,
-    bonus: "+200 free",
-  },
-  {
-    id: "handful_lg",
-    name: "Business Pack",
-    coins: 1500,
-    cost: 26,
-    bonus: "+200 free",
-  },
-  {
-    id: "bag_lg",
-    name: "Scale Pack",
-    coins: 3000,
-    cost: 54,
-    bonus: "+300 free",
-    popular: true,
-  },
-  {
-    id: "chest_lg",
-    name: "Enterprise Pack",
-    coins: 8000,
-    cost: 153,
-    bonus: "+350 free",
-  },
-];
-
-const COIN_PRICE_USD = 0.02;
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -135,7 +87,7 @@ const EmbeddedStripeForm = ({ pack, onComplete, notify }: any) => {
       notify(
         "success",
         "Payment Successful!",
-        `Added ${pack.coins} Coins to your wallet.`
+        `Added ${pack.credits} credits to your wallet.`
       );
       onComplete();
     }
@@ -159,7 +111,7 @@ const EmbeddedStripeForm = ({ pack, onComplete, notify }: any) => {
         ) : (
           <Lock size={18} className="mr-2" />
         )}
-        Securely Pay ${pack.cost.toFixed(2)}
+        Securely Pay ${pack.costUsd.toFixed(2)}
       </Button>
     </form>
   );
@@ -186,12 +138,12 @@ export default function TopUpModal({
     return () => window.removeEventListener("TOUR_STEP_CHANGED", handleTour);
   }, []);
 
-  // Custom Coin State
-  const [customCoins, setCustomCoins] = useState<string>("");
+  // Custom credit amount state
+  const [customCredits, setCustomCredits] = useState<string>("");
 
   // Embedded Checkout State
   const [selectedPack, setSelectedPack] = useState<
-    (typeof COIN_PACKS)[0] | null
+    (typeof CREDIT_PACKS)[0] | null
   >(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -216,7 +168,7 @@ export default function TopUpModal({
     return () => observer.disconnect();
   }, []);
 
-  const handleSelectPack = async (pack: (typeof COIN_PACKS)[0]) => {
+  const handleSelectPack = async (pack: (typeof CREDIT_PACKS)[0]) => {
     setSelectedPack(pack);
     setPaymentMethod("card");
     setIsInitializing(true);
@@ -228,12 +180,12 @@ export default function TopUpModal({
         "create-payment-intent",
         {
           body: {
-            amount: pack.cost,
+            amount: pack.costUsd,
             currency: "usd",
             metadata: {
               type: "top_up",
               actor_id: actorData.id,
-              coins_amount: pack.coins,
+              coins_amount: pack.credits,
             },
           },
         }
@@ -255,16 +207,16 @@ export default function TopUpModal({
   };
 
   const handleCustomPackSubmit = () => {
-    const coins = parseInt(customCoins);
-    if (isNaN(coins) || coins < 50) {
-      notify("error", "Invalid Amount", "Minimum purchase is 50 coins.");
+    const credits = parseInt(customCredits);
+    if (isNaN(credits) || credits < MIN_CUSTOM_CREDIT_AMOUNT) {
+      notify("error", "Invalid Amount", `Minimum purchase is ${MIN_CUSTOM_CREDIT_AMOUNT} credits.`);
       return;
     }
     const customPack = {
       id: "custom",
       name: "Custom amount",
-      coins: coins,
-      cost: coins * COIN_PRICE_USD,
+      credits: credits,
+      costUsd: credits * CREDIT_UNIT_USD,
       bonus: "",
     };
     handleSelectPack(customPack);
@@ -275,7 +227,7 @@ export default function TopUpModal({
     const userEmail = profile?.email || actorData.email || "No Email";
     const message = `Hello, I would like to purchase the "${
       selectedPack.name
-    }" (${selectedPack.coins} Coins) for $${selectedPack.cost.toFixed(
+    }" (${selectedPack.credits} credits) for $${selectedPack.costUsd.toFixed(
       2
     )} via Wise / Local Bank Transfer.\n\nMy Details:\nName: ${
       actorData.ActorName
@@ -295,8 +247,8 @@ export default function TopUpModal({
         "create-crypto-invoice",
         {
           body: {
-            amount: selectedPack.cost,
-            coins_amount: selectedPack.coins,
+            amount: selectedPack.costUsd,
+            coins_amount: selectedPack.credits,
             actor_id: actorData.id,
           },
         }
@@ -340,7 +292,7 @@ export default function TopUpModal({
     if (error || (data && !data.success)) {
       notify("error", "Redeem Failed", data?.message || error?.message);
     } else {
-      notify("success", "Coins Added!", "Gift code redeemed.");
+      notify("success", "Credits added!", "Gift code redeemed.");
       setRedeemCode("");
       onSuccess();
       if (tourStep === 4) {
@@ -375,9 +327,9 @@ export default function TopUpModal({
             <div className="w-20 h-20 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 size={40} />
             </div>
-            <h2 className="text-3xl font-black mb-3 text-foreground">2,700 coins added</h2>
+            <h2 className="text-3xl font-black mb-3 text-foreground">2,700 credits added</h2>
             <p className="text-base text-muted-foreground mb-8 max-w-md">
-              Your welcome gift has been credited to your balance. Use these coins to unlock Pro features once your trial ends, or purchase new themes from the marketplace.
+              Your welcome gift has been credited to your balance. Use these credits to unlock Pro features once your trial ends, or purchase new themes from the marketplace.
             </p>
             <Button 
               size="lg" 
@@ -401,7 +353,7 @@ export default function TopUpModal({
                 variant="ghost"
                 size="icon"
                 onClick={() => setSelectedPack(null)}
-                aria-label="Back to coin packs"
+                aria-label="Back to credit packs"
                 className="h-8 w-8 rounded-full bg-muted/50 hover:bg-muted transition-transform active:scale-90"
               >
                 <ArrowLeft size={16} />
@@ -422,7 +374,7 @@ export default function TopUpModal({
                       {selectedPack.name}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {selectedPack.coins.toLocaleString()} coins
+                      {selectedPack.credits.toLocaleString()} credits
                     </p>
                   </div>
                 </div>
@@ -436,12 +388,12 @@ export default function TopUpModal({
 
                 <div className="rounded-xl border border-border/60 bg-background p-4 space-y-3 mb-6">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Coins</span>
-                    <span className="font-semibold text-foreground">{selectedPack.coins.toLocaleString()}</span>
+                    <span className="text-muted-foreground">Credits</span>
+                    <span className="font-semibold text-foreground">{selectedPack.credits.toLocaleString()}</span>
                   </div>
                   <div className="border-t border-border/60 pt-3 flex justify-between">
                     <span className="font-bold text-foreground">Total due</span>
-                    <span className="text-xl font-black text-foreground">${selectedPack.cost.toFixed(2)}</span>
+                    <span className="text-xl font-black text-foreground">${selectedPack.costUsd.toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -452,7 +404,7 @@ export default function TopUpModal({
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <CheckCircle2 size={16} className="text-primary shrink-0" />
-                    Coins never expire
+                    Credits never expire
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <ShieldCheck size={16} className="text-primary shrink-0" />
@@ -467,7 +419,7 @@ export default function TopUpModal({
                   <h3 className="font-bold text-xl text-foreground">
                     Payment method
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">Choose how you'd like to pay ${selectedPack.cost.toFixed(2)}.</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">Choose how you'd like to pay ${selectedPack.costUsd.toFixed(2)}.</p>
                 </div>
 
                 <Tabs
@@ -597,7 +549,7 @@ export default function TopUpModal({
                           us directly on WhatsApp.
                         </p>
                         <div className="text-xs font-semibold text-muted-foreground bg-background border border-border/60 px-3 py-2 rounded-lg">
-                          Coins will be credited manually once the transfer
+                          Credits will be credited manually once the transfer
                           clears.
                         </div>
                       </div>
@@ -636,10 +588,10 @@ export default function TopUpModal({
                 <div className={cn("space-y-1 transition-opacity duration-300", tourStep === 3 && "opacity-20 pointer-events-none")}>
                   <DialogTitle className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
                     <Coins className="text-primary w-7 h-7" />{" "}
-                    Add coins
+                    Add credits
                   </DialogTitle>
                   <DialogDescription className="text-base">
-                    Top up your balance to purchase Pro upgrades and slots.
+                    Top up your Platform Credits to purchase Pro upgrades and slots.
                   </DialogDescription>
                 </div>
                 <TabsList className={cn("bg-muted/50 p-1 w-full md:w-fit grid grid-cols-2 md:flex rounded-xl border border-border/50 transition-all", tourStep === 3 && "ring-4 ring-primary bg-background shadow-2xl scale-105 pointer-events-auto")}>
@@ -658,13 +610,13 @@ export default function TopUpModal({
               className="mt-0 flex-grow overflow-y-auto px-4 py-6 md:p-8 custom-scrollbar"
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pb-12 sm:pb-0 max-w-6xl mx-auto">
-                {COIN_PACKS.map((pack) => {
+                {CREDIT_PACKS.map((pack) => {
                   return (
                     <div
                       key={pack.id}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Buy ${pack.name} for $${pack.cost.toFixed(2)}`}
+                      aria-label={`Buy ${pack.name} for $${pack.costUsd.toFixed(2)}`}
                       className={cn(
                         "group relative flex flex-col rounded-2xl border-2 bg-card p-6 text-left transition-all cursor-pointer hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99] outline-none focus-visible:ring-2 focus-visible:ring-primary",
                         pack.popular ? "border-primary shadow-sm" : "border-border/60 hover:border-primary/40"
@@ -693,12 +645,12 @@ export default function TopUpModal({
                         )}
                       </div>
                       <div className="text-2xl font-black text-foreground tracking-tight">
-                        {pack.coins.toLocaleString()} <span className="text-sm font-semibold text-muted-foreground">coins</span>
+                        {pack.credits.toLocaleString()} <span className="text-sm font-semibold text-muted-foreground">credits</span>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{pack.name}</p>
 
                       <div className="mt-6 pt-4 border-t border-border/60 flex items-center justify-between">
-                        <span className="text-xl font-bold text-foreground">${pack.cost.toFixed(2)}</span>
+                        <span className="text-xl font-bold text-foreground">${pack.costUsd.toFixed(2)}</span>
                         <span className="inline-flex items-center gap-1 text-sm font-semibold text-primary">
                           Select <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" />
                         </span>
@@ -707,7 +659,7 @@ export default function TopUpModal({
                   );
                 })}
 
-                {/* --- CUSTOM COIN GENERATOR --- */}
+                {/* --- CUSTOM CREDIT AMOUNT --- */}
                 <div className="col-span-1 sm:col-span-2 lg:col-span-3 mt-4 border border-border/60 rounded-2xl p-6 bg-card flex flex-col sm:flex-row items-center justify-between gap-6 hover:border-primary/30 transition-colors">
                   <div className="space-y-1 text-center sm:text-left flex-1">
                     <h4 className="font-bold text-lg flex items-center justify-center sm:justify-start gap-2 text-foreground">
@@ -715,34 +667,34 @@ export default function TopUpModal({
                       specific amount?
                     </h4>
                     <p className="text-sm text-muted-foreground">
-                      Enter exactly how many coins you need ($0.02 per coin).
+                      Enter exactly how many credits you need (${CREDIT_UNIT_USD.toFixed(2)} per credit).
                     </p>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto">
                     <div className="relative">
                       <Input
-                        id="custom-coins"
-                        aria-label="Custom coin amount"
+                        id="custom-credits"
+                        aria-label="Custom credit amount"
                         type="number"
                         placeholder="e.g. 750"
-                        min="50"
+                        min={MIN_CUSTOM_CREDIT_AMOUNT}
                         step="50"
-                        value={customCoins}
-                        onChange={(e) => setCustomCoins(e.target.value)}
+                        value={customCredits}
+                        onChange={(e) => setCustomCredits(e.target.value)}
                         className="h-11 w-full sm:w-32 text-base font-bold text-center pr-12 bg-background"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold text-xs">
-                        coins
+                        credits
                       </span>
                     </div>
                     <Button
                       className="h-11 px-6 font-bold"
-                      disabled={!customCoins || parseInt(customCoins) < 50}
+                      disabled={!customCredits || parseInt(customCredits) < MIN_CUSTOM_CREDIT_AMOUNT}
                       onClick={handleCustomPackSubmit}
                     >
                       Buy for $
-                      {customCoins && parseInt(customCoins) >= 50
-                        ? (parseInt(customCoins) * COIN_PRICE_USD).toFixed(2)
+                      {customCredits && parseInt(customCredits) >= MIN_CUSTOM_CREDIT_AMOUNT
+                        ? (parseInt(customCredits) * CREDIT_UNIT_USD).toFixed(2)
                         : "0.00"}
                     </Button>
                   </div>
@@ -763,7 +715,7 @@ export default function TopUpModal({
                     Redeem a gift code
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    Enter your promotional code to instantly add free coins to
+                    Enter your promotional code to instantly add free credits to
                     your wallet.
                   </p>
                 </div>
@@ -810,7 +762,7 @@ export default function TopUpModal({
               <h3 className="text-lg font-bold">Enter Code</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Type <strong>BISSMILAH</strong> in the box and hit Apply to get 2,700 coins instantly!
+              Type <strong>BISSMILAH</strong> in the box and hit Apply to get 2,700 credits instantly!
             </p>
           </div>
         )}

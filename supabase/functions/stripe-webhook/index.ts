@@ -28,23 +28,34 @@ serve(async (request) => {
       cryptoProvider
     );
 
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    // Idempotency: Stripe can redeliver the same event after a network retry.
+    // Record the event id first; if it already exists, this event was already handled.
+    const { error: dedupeError } = await supabase
+      .from("processed_stripe_events")
+      .insert({ event_id: event.id, event_type: event.type });
+    if (dedupeError) {
+      if (dedupeError.code === "23505") {
+        return new Response(JSON.stringify({ received: true, deduped: true }), { status: 200 });
+      }
+      throw dedupeError;
+    }
+
     // We only care about successful embedded payments
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent = event.data.object;
       const metadata = paymentIntent.metadata;
 
-      // Is this a coin top-up?
+      // Is this a Platform Credits top-up?
       if (metadata && metadata.type === "top_up") {
         const actorId = metadata.actor_id;
         const coinsAmount = parseInt(metadata.coins_amount);
 
-        // Initialize Admin Supabase Client
-        const supabase = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-        );
-
-        // Call our secure SQL function to add the coins!
+        // Call our secure SQL function to add the credits!
         const { error } = await supabase.rpc("process_stripe_topup", {
           p_actor_id: actorId,
           p_coins_amount: coinsAmount,
@@ -52,6 +63,23 @@ serve(async (request) => {
           p_stripe_payment_intent_id: paymentIntent.id,
         });
 
+        if (error) throw error;
+      }
+    }
+
+    // A cardholder disputed a charge after credits were already granted from it.
+    // Reverse the credited amount and suspend the account until it's settled.
+    if (event.type === "charge.dispute.created") {
+      const dispute = event.data.object as any;
+      const paymentIntent = await stripe.paymentIntents.retrieve(dispute.payment_intent as string);
+      if (paymentIntent.metadata?.type === "top_up") {
+        const { error } = await supabase.rpc("handle_charge_dispute", {
+          p_actor_id: paymentIntent.metadata.actor_id,
+          p_credits_amount: parseInt(paymentIntent.metadata.coins_amount),
+          p_stripe_payment_intent_id: paymentIntent.id,
+          p_amount_cents: dispute.amount,
+          p_dispute_reason: `Stripe chargeback on payment ${paymentIntent.id}`,
+        });
         if (error) throw error;
       }
     }
